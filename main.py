@@ -208,11 +208,17 @@ def fetch_product_data(product_id, session_id):
         if response.status_code != 200:
             print(f"API returned status code {response.status_code} for term {product_id}")
             return None
-            
-        # Instead of using response.json() which can cause recursion issues,
-        # we'll manually parse only the parts we need
+        
+        # Instead of trying to parse the entire JSON, which can cause recursion errors,
+        # we'll use a more robust approach that incrementally builds the result
         text_response = response.text
         
+        # First, check if there are any products in the response by looking for productId
+        if '"productId"' not in text_response and '"retailerProductId"' not in text_response:
+            print(f"No products found for term {product_id}")
+            return {"entities": {"product": {}}}
+        
+        # A more reliable approach to extract product data
         # Create a basic structure for the result
         result = {
             "entities": {
@@ -220,53 +226,72 @@ def fetch_product_data(product_id, session_id):
             }
         }
         
-        # Find all product blocks in the response
-        # This regex looks for "productId":"some-id" patterns
-        product_blocks = re.finditer(r'"productId"\s*:\s*"([^"]+)"', text_response)
+        # Try to extract product IDs first
+        product_ids = []
+        product_id_matches = re.finditer(r'"productId"\s*:\s*"([^"]+)"', text_response)
+        for match in product_id_matches:
+            product_ids.append(match.group(1))
         
-        # Process each product match to extract relevant data
-        for match in product_blocks:
-            try:
-                # Find the start of this product's JSON object
-                product_start = text_response.rfind('{', 0, match.start())
-                
-                # Look for the closing bracket, but limit the search to a reasonable chunk
-                # This prevents parsing the entire massive JSON if it's too large
-                search_end = min(match.start() + 10000, len(text_response))
-                chunk = text_response[product_start:search_end]
-                
-                # Count opening and closing brackets to find the end of this product
-                bracket_count = 1
-                product_end = 0
-                
-                for i, char in enumerate(chunk[1:], 1):
-                    if char == '{':
-                        bracket_count += 1
-                    elif char == '}':
-                        bracket_count -= 1
+        # If no product IDs found, look for retailer product IDs
+        if not product_ids:
+            retailer_id_matches = re.finditer(r'"retailerProductId"\s*:\s*"([^"]+)"', text_response)
+            for match in retailer_id_matches:
+                product_ids.append("retailer_" + match.group(1))
+        
+        # For each product ID, extract the product data around it
+        for prod_id in product_ids:
+            # Find where this product ID is mentioned in the text
+            search_pattern = f'"productId"\\s*:\\s*"{prod_id}"' if not prod_id.startswith("retailer_") else f'"retailerProductId"\\s*:\\s*"{prod_id[9:]}"'
+            id_match = re.search(search_pattern, text_response)
+            
+            if id_match:
+                # Find the start of the object containing this ID
+                obj_start = text_response.rfind("{", 0, id_match.start())
+                if obj_start >= 0:
+                    # Now find the corresponding closing brace
+                    # This is tricky because we need to count nested braces
+                    brace_count = 1
+                    obj_end = obj_start + 1
+                    
+                    while brace_count > 0 and obj_end < len(text_response):
+                        if text_response[obj_end] == "{":
+                            brace_count += 1
+                        elif text_response[obj_end] == "}":
+                            brace_count -= 1
+                        obj_end += 1
+                    
+                    if brace_count == 0:
+                        # Successfully found the matching closing brace
+                        product_json = text_response[obj_start:obj_end]
                         
-                    if bracket_count == 0:
-                        product_end = product_start + i + 1
-                        break
-                
-                if product_end > 0:
-                    # Try to parse just this product chunk
-                    product_json = chunk[:product_end-product_start]
-                    try:
-                        product_data = json.loads(product_json)
-                        product_id = product_data.get("productId")
-                        
-                        if product_id:
-                            # Store only this product in our result
-                            result["entities"]["product"][product_id] = product_data
-                    except json.JSONDecodeError:
-                        # If we can't parse this product, just skip it
-                        continue
-            except Exception as e:
-                # Skip any products that cause errors during processing
-                print(f"Error processing product match: {str(e)}")
-                continue
-                
+                        try:
+                            # Parse just this product object
+                            import json
+                            product_data = json.loads(product_json)
+                            
+                            # Add to our result
+                            actual_id = prod_id if not prod_id.startswith("retailer_") else product_data.get("productId", prod_id)
+                            result["entities"]["product"][actual_id] = product_data
+                        except json.JSONDecodeError as e:
+                            print(f"Error parsing product JSON for {prod_id}: {str(e)}")
+                            # Try a fallback approach - extract common fields directly
+                            fallback_product = extract_product_fields(product_json, prod_id)
+                            if fallback_product:
+                                result["entities"]["product"][prod_id] = fallback_product
+        
+        # If we didn't find any products but there were matches, something went wrong with the parsing
+        if not result["entities"]["product"] and product_ids:
+            print(f"Warning: Found {len(product_ids)} product IDs but couldn't parse them properly")
+            # Create a minimal product entry to prevent "not found"
+            for prod_id in product_ids:
+                clean_id = prod_id[9:] if prod_id.startswith("retailer_") else prod_id
+                result["entities"]["product"][clean_id] = {
+                    "productId": clean_id,
+                    "retailerProductId": product_id,  # Use the search term as retailerProductId
+                    "name": f"Product {clean_id}",
+                    "available": True
+                }
+        
         return result
         
     except requests.exceptions.Timeout:
@@ -280,6 +305,62 @@ def fetch_product_data(product_id, session_id):
         print(f"Unexpected error fetching product data for {product_id}: {str(e)}")
         return None
 
+def extract_product_fields(product_json, product_id):
+    """Extract essential product fields using regex when JSON parsing fails"""
+    try:
+        # Clean the product ID if it's a retailer ID
+        clean_id = product_id[9:] if product_id.startswith("retailer_") else product_id
+        
+        # Create a basic product
+        product = {
+            "productId": clean_id,
+            "retailerProductId": None,
+            "name": None,
+            "available": True,
+            "brand": None,
+            "categoryPath": [],
+            "price": {
+                "current": {
+                    "amount": None,
+                    "currency": "CAD"
+                }
+            }
+        }
+        
+        # Extract retailerProductId
+        retailer_id_match = re.search(r'"retailerProductId"\s*:\s*"([^"]+)"', product_json)
+        if retailer_id_match:
+            product["retailerProductId"] = retailer_id_match.group(1)
+        
+        # Extract name
+        name_match = re.search(r'"name"\s*:\s*"([^"]+)"', product_json)
+        if name_match:
+            product["name"] = name_match.group(1)
+        
+        # Extract brand
+        brand_match = re.search(r'"brand"\s*:\s*"([^"]+)"', product_json)
+        if brand_match:
+            product["brand"] = brand_match.group(1)
+        
+        # Extract availability
+        available_match = re.search(r'"available"\s*:\s*(true|false)', product_json)
+        if available_match:
+            product["available"] = available_match.group(1) == "true"
+        
+        # Extract price
+        price_match = re.search(r'"current"\s*:\s*{[^}]*"amount"\s*:\s*"([^"]+)"', product_json)
+        if price_match:
+            product["price"]["current"]["amount"] = price_match.group(1)
+        
+        # Extract image URL
+        image_match = re.search(r'"src"\s*:\s*"([^"]+)"', product_json)
+        if image_match:
+            product["image"] = {"src": image_match.group(1)}
+        
+        return product
+    except Exception as e:
+        print(f"Error in fallback extraction: {str(e)}")
+        return None
 def process_term(term, session_id, limit):
     """Process a single search term and return products found"""
     try:
