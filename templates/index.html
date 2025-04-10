@@ -1,0 +1,830 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voila Price Checker</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+    <!-- Favicon links -->
+    <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='favicon_io/apple-touch-icon.png') }}">
+    <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='favicon_io/favicon-32x32.png') }}">
+    <link rel="icon" type="image/png" sizes="16x16" href="{{ url_for('static', filename='favicon_io/favicon-16x16.png') }}">
+    <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon_io/favicon.ico') }}">
+    <link rel="manifest" href="{{ url_for('static', filename='favicon_io/site.webmanifest') }}">
+
+    <style>
+        :root {
+            --voila-cyan: #00d9f9;
+            --voila-dark-green: #00483b;
+            --voila-orange: #fc6c2b;
+            --voila-white: #ffffff;
+            --voila-very-dark-green: #002f2c;
+            --voila-muted-teal: #2a6762;
+            --voila-light-bg: #f8f9fa;
+            --voila-gray: #6c757d;
+        }
+
+        body {
+            padding-bottom: 40px;
+            margin: 0;
+            background-color: var(--voila-light-bg);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: var(--voila-very-dark-green);
+        }
+
+        .container {
+            max-width: 1200px;
+        }
+
+        /* Navigation Bar Styles */
+        .navbar {
+            background-color: var(--voila-very-dark-green);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            padding: 1rem 0;
+            margin-bottom: 2rem;
+            border-radius: 0 0 10px 10px;
+        }
+
+        .navbar-brand {
+            font-weight: bold;
+            color: var(--voila-cyan) !important;
+        }
+
+        .logo-text {
+            font-size: 2.2rem;
+            font-weight: 800;
+            letter-spacing: -1px;
+        }
+
+        .brand-subtitle {
+            color: var(--voila-white);
+            font-size: 0.9rem;
+            opacity: 0.9;
+            letter-spacing: 0.5px;
+        }
+
+        /* Product Card Styles */
+        .product-card {
+            margin-bottom: 20px;
+            transition: transform 0.2s;
+            height: 100%;
+            border-radius: 12px;
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.07);
+            border: none;
+            overflow: hidden;
+        }
+
+        .product-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 24px rgba(0, 0, 0, 0.12);
+        }
+
+        .product-img {
+            height: 200px;
+            object-fit: contain;
+            padding: 10px;
+        }
+
+        /* Session ID Section */
+        .session-id-section {
+            background-color: #e9ecef;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            border-left: 4px solid var(--voila-cyan);
+        }
+
+        /* Region Info Banner */
+        .region-info-banner {
+            background-color: var(--voila-dark-green);
+            color: var(--voila-white);
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            border-left: 4px solid var(--voila-cyan);
+        }
+
+        .region-icon {
+            font-size: 1.5rem;
+            margin-right: 15px;
+            color: var(--voila-cyan);
+        }
+
+        /* Instructions */
+        .instructions {
+            background-color: #fff;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            border-left: 4px solid var(--voila-dark-green);
+        }
+
+        /* Price Tag Styles */
+        .price-tag {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: var(--voila-dark-green);
+        }
+
+        .original-price {
+            text-decoration: line-through;
+            color: var(--voila-gray);
+            font-size: 0.9rem;
+        }
+
+        .discount-badge {
+            background-color: var(--voila-orange) !important;
+            color: white;
+            padding: 2px 5px;
+            border-radius: 3px;
+            font-size: 0.8rem;
+            margin-left: 5px;
+            font-weight: bold;
+        }
+
+        .scene-badge {
+            background-color: #6f42c1;
+            color: white;
+            padding: 2px 5px;
+            border-radius: 3px;
+            font-size: 0.8rem;
+            margin-right: 5px;
+            margin-bottom: 5px;
+            display: inline-block;
+        }
+
+        .offer-badge {
+            background-color: var(--voila-orange);
+            color: white;
+            padding: 2px 5px;
+            border-radius: 3px;
+            font-size: 0.8rem;
+            margin-right: 5px;
+            margin-bottom: 5px;
+            display: inline-block;
+        }
+
+        /* Search Container */
+        .search-container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.05);
+            margin-bottom: 20px;
+        }
+
+        /* Loading Spinner */
+        .loading-spinner {
+            display: none;
+            text-align: center;
+            margin: 20px 0;
+        }
+
+        /* Form Elements Styles */
+        .form-control {
+            border-radius: 8px;
+            padding: 0.75rem 1rem;
+            border: 2px solid #e9ecef;
+            transition: all 0.3s ease;
+        }
+
+        .form-control:focus {
+            border-color: var(--voila-muted-teal);
+            box-shadow: 0 0 0 0.25rem rgba(0, 217, 249, 0.25);
+        }
+
+        .form-label {
+            font-weight: 500;
+            color: var(--voila-dark-green);
+            margin-bottom: 0.5rem;
+        }
+
+        /* Button Styles */
+        .btn-primary {
+            background-color: var(--voila-dark-green);
+            border-color: var(--voila-dark-green);
+            padding: 0.6rem 1.2rem;
+            font-weight: 500;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary:hover, .btn-primary:focus {
+            background-color: var(--voila-muted-teal);
+            border-color: var(--voila-muted-teal);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .btn-success {
+            background-color: var(--voila-muted-teal);
+            border-color: var(--voila-muted-teal);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+        }
+
+        .btn-success:hover, .btn-success:focus {
+            background-color: #225752;
+            border-color: #225752;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Results Section */
+        .results-card {
+            overflow: visible;
+            border-radius: 12px;
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.07);
+            margin-bottom: 20px;
+        }
+
+        .results-header {
+            background-color: var(--voila-dark-green);
+            color: var(--voila-white);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 1.5rem;
+            border-radius: 12px 12px 0 0;
+        }
+
+        .results-header h5 {
+            margin-bottom: 0;
+            font-weight: 600;
+        }
+
+        /* Mobile Responsiveness */
+        @media (max-width: 767.98px) {
+            .card-header {
+                padding: 0.85rem 1.25rem;
+            }
+
+            .card-body {
+                padding: 1.25rem;
+            }
+
+            .logo-text {
+                font-size: 1.8rem;
+            }
+
+            .results-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 10px;
+            }
+
+            .export-btn {
+                align-self: flex-start;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation Bar -->
+    <nav class="navbar navbar-dark">
+        <div class="container">
+            <a class="navbar-brand" href="#">
+                <span class="logo-text"><i class="fas fa-shopping-cart me-2"></i>voilà 🍑</span>
+                <small class="d-block brand-subtitle">Regional Price Checker</small>
+            </a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <!-- Instructions -->
+        <div class="instructions">
+            <h4>How to Use the Voila Price Checker</h4>
+            <p>This tool allows you to search for multiple products on Voila.ca using your personal session ID.</p>
+            <ol>
+                <li>Enter your Voila.ca session ID in the field below</li>
+                <li>Enter search terms or product IDs to find products (separate multiple terms with commas or new lines)</li>
+                <li>View the product details and prices</li>
+            </ol>
+
+            <h5 class="mt-3">How to Get Your Session ID:</h5>
+            <ol>
+                <li>Log in to your Voila.ca account</li>
+                <li>Book a time in the region you want to search</li>
+                <li>Perform any search in the Voila.ca interface</li>
+                <li>Open your browser's developer tools (F12 or right-click and select "Inspect")</li>
+                <li>Go to the "Application" or "Storage" tab</li>
+                <li>Look for "Cookies" and find the "global_sid" cookie value</li>
+                <li>Copy the entire value and paste it below</li>
+            </ol>
+
+            <div class="alert alert-info">
+                <strong>Note:</strong> To change regions, you need to log in to your Voila account, book a slot in the desired region, 
+                perform a search in that region, then extract the new session ID.
+            </div>
+        </div>
+
+        <!-- Session ID Input -->
+        <div class="search-container">
+            <div class="session-id-section">
+                <div class="mb-3">
+                    <label for="sessionId" class="form-label">Voila Session ID:</label>
+                    <input type="text" class="form-control" id="sessionId" placeholder="Paste your global_sid here">
+                </div>
+            </div>
+
+            <!-- Region Info Banner (Initially Hidden) -->
+            <div id="regionInfoBanner" class="region-info-banner" style="display: none;">
+                <i class="fas fa-map-marker-alt region-icon"></i>
+                <div id="regionText"></div>
+            </div>
+
+            <!-- Search Form -->
+            <div class="mb-3">
+                <label for="searchTerms" class="form-label">Search Terms (separate multiple terms with commas or new lines):</label>
+                <textarea class="form-control" id="searchTerms" rows="3" placeholder="Enter product names or IDs, one per line or comma-separated"></textarea>
+            </div>
+            <div class="mb-3">
+                <label for="resultLimit" class="form-label">Result Limit per Search Term:</label>
+                <select class="form-select" id="resultLimit">
+                    <option value="10">10 results</option>
+                    <option value="20">20 results</option>
+                    <option value="50">50 results</option>
+                    <option value="all">All results</option>
+                </select>
+            </div>
+            <button id="searchButton" class="btn btn-primary w-100 mb-3">Search Products</button>
+            <button id="exportButton" class="btn btn-success w-100" style="display: none;">Export to Excel</button>
+        </div>
+
+        <!-- Loading Spinner -->
+        <div class="loading-spinner" id="loadingSpinner">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="mt-2">Searching products...</p>
+        </div>
+
+        <!-- Results Section -->
+        <div id="searchInfo" class="results-card" style="display: none;">
+            <div class="results-header">
+                <h5 id="searchResultsTitle">Search Results</h5>
+                <span id="resultStats" class="badge bg-light text-dark"></span>
+            </div>
+            <div class="card-body">
+                <div id="resultsContainer" class="row"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Variables
+            const searchButton = document.getElementById('searchButton');
+            const exportButton = document.getElementById('exportButton');
+            const loadingSpinner = document.getElementById('loadingSpinner');
+            const resultsContainer = document.getElementById('resultsContainer');
+            const searchInfo = document.getElementById('searchInfo');
+            const resultStats = document.getElementById('resultStats');
+            const searchResultsTitle = document.getElementById('searchResultsTitle');
+            const regionInfoBanner = document.getElementById('regionInfoBanner');
+            const regionText = document.getElementById('regionText');
+
+            // Store results for export
+            let allSearchResults = [];
+            let totalFoundProducts = 0;
+            let displayedProducts = 0;
+            let currentRegionInfo = null;
+
+            // Set up event listeners
+            searchButton.addEventListener('click', searchProducts);
+            exportButton.addEventListener('click', exportToExcel);
+
+            // Add event listener to check region info when session ID changes
+            document.getElementById('sessionId').addEventListener('blur', checkRegionInfo);
+
+            // Also check session ID when pasted
+            document.getElementById('sessionId').addEventListener('paste', function() {
+                // Short delay to allow paste to complete
+                setTimeout(checkRegionInfo, 100);
+            });
+
+            // Search when Enter key is pressed in search input while Ctrl is held
+            document.getElementById('searchTerms').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter' && e.ctrlKey) {
+                    searchProducts();
+                }
+            });
+
+            // Function to check region info when session ID is entered
+            function checkRegionInfo() {
+                const sessionId = document.getElementById('sessionId').value.trim();
+
+                if (!sessionId) {
+                    regionInfoBanner.style.display = 'none';
+                    return;
+                }
+
+                // Show loading message
+                regionInfoBanner.style.display = 'flex';
+                regionText.innerHTML = '<div class="spinner-border spinner-border-sm me-2" role="status"></div> Checking region information...';
+
+                // Make API request to get region info
+                fetch('/api/fetch-product', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        sessionId: sessionId,
+                        searchTerm: 'milk',  // Use a common term just to get region info
+                        limit: 1  // Only need one result
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        regionInfoBanner.style.display = 'none';
+                        alert(`Error: ${data.error}`);
+                        return;
+                    }
+
+                    // Extract region info
+                    if (data.region_info) {
+                        currentRegionInfo = data.region_info;
+
+                        // Update region banner
+                        regionInfoBanner.style.display = 'flex';
+                        const regionName = data.region_info.nickname || 'Unknown Region';
+                        const address = data.region_info.displayAddress || '';
+                        const postalCode = data.region_info.postalCode || '';
+
+                        regionText.innerHTML = `
+                            <div>
+                                <strong>Request sent from ${regionName} region</strong><br>
+                                ${address}<br>
+                                Postal Code: ${postalCode}
+                            </div>
+                        `;
+                    } else {
+                        regionInfoBanner.style.display = 'none';
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching region info:', error);
+                    regionInfoBanner.style.display = 'none';
+                    alert('Error fetching region information. Please check your session ID.');
+                });
+            }
+
+            function searchProducts() {
+                const sessionId = document.getElementById('sessionId').value.trim();
+                const searchTermsInput = document.getElementById('searchTerms').value.trim();
+                const resultLimit = document.getElementById('resultLimit').value;
+
+                // Validate inputs
+                if (!sessionId) {
+                    alert('Please enter your Voila session ID');
+                    return;
+                }
+
+                if (!searchTermsInput) {
+                    alert('Please enter at least one search term');
+                    return;
+                }
+
+                // Parse search terms (split by commas or new lines)
+                const searchTerms = searchTermsInput
+                    .split(/[\n,]/)
+                    .map(term => term.trim())
+                    .filter(term => term.length > 0);
+
+                if (searchTerms.length === 0) {
+                    alert('Please enter at least one valid search term');
+                    return;
+                }
+
+                // Show loading spinner
+                loadingSpinner.style.display = 'block';
+                resultsContainer.innerHTML = '';
+                searchInfo.style.display = 'none';
+                exportButton.style.display = 'none';
+
+                // Reset results
+                allSearchResults = [];
+                totalFoundProducts = 0;
+                displayedProducts = 0;
+
+                // Create a promise for each search term
+                const searchPromises = searchTerms.map(term => {
+                    return new Promise((resolve, reject) => {
+                        // Prepare request payload
+                        const payload = {
+                            sessionId: sessionId,
+                            searchTerm: term,
+                            limit: resultLimit
+                        };
+
+                        // Make API request
+                        fetch('/api/fetch-product', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify(payload)
+                        })
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.error) {
+                                reject(data.error);
+                                return;
+                            }
+
+                            // Store region info if available
+                            if (data.region_info) {
+                                currentRegionInfo = data.region_info;
+
+                                // Update region banner
+                                regionInfoBanner.style.display = 'flex';
+                                const regionName = data.region_info.nickname || 'Unknown Region';
+                                const address = data.region_info.displayAddress || '';
+                                const postalCode = data.region_info.postalCode || '';
+
+                                regionText.innerHTML = `
+                                    <div>
+                                        <strong>Request sent from ${regionName} region</strong><br>
+                                        ${address}<br>
+                                        Postal Code: ${postalCode}
+                                    </div>
+                                `;
+                            }
+
+                            // Add search term to each product for reference
+                            if (data.products && data.products.length) {
+                                data.products.forEach(product => {
+                                    product.searchTerm = term;
+                                });
+
+                                // Add to total count and results
+                                totalFoundProducts += data.total_found;
+                                allSearchResults = [...allSearchResults, ...data.products];
+                                displayedProducts += data.products.length;
+                            }
+
+                            resolve();
+                        })
+                        .catch(error => {
+                            reject(error);
+                        });
+                    });
+                });
+
+                // Execute all searches
+                Promise.all(searchPromises)
+                    .then(() => {
+                        // Hide loading spinner
+                        loadingSpinner.style.display = 'none';
+
+                        // Update results title
+                        const regionName = currentRegionInfo?.nickname || 'Unknown Region';
+                        searchResultsTitle.textContent = `Search Results for ${regionName}`;
+
+                        // Update stats
+                        resultStats.textContent = `Found ${totalFoundProducts} products, showing ${displayedProducts}`;
+
+                        // Show export button if we have results
+                        exportButton.style.display = allSearchResults.length > 0 ? 'block' : 'none';
+
+                        // Show results section
+                        searchInfo.style.display = 'block';
+
+                        // Display products
+                        displayResults(allSearchResults, resultsContainer);
+                    })
+                    .catch(error => {
+                        loadingSpinner.style.display = 'none';
+                        searchInfo.style.display = 'block';
+                        searchResultsTitle.textContent = `Error`;
+                        resultStats.innerHTML = `<div class="alert alert-danger">Error: ${error}</div>`;
+                        exportButton.style.display = 'none';
+                        console.error('Error:', error);
+                    });
+            }
+
+            function displayResults(products, containerElement) {
+                if (!products || products.length === 0) {
+                    containerElement.innerHTML = '<div class="col-12 text-center"><p>No products found. Try different search terms.</p></div>';
+                    return;
+                }
+
+                // Clear previous results
+                containerElement.innerHTML = '';
+
+                // Create product cards
+                products.forEach(product => {
+                    const productCard = document.createElement('div');
+                    productCard.className = 'col-md-4 col-lg-3 mb-4';
+
+                    // Format price display - Handle non-number values
+                    let priceDisplay = '';
+                    let discountBadge = '';
+
+                    if (product.currentPrice !== null && product.currentPrice !== undefined) {
+                        // Safely format the current price
+                        const formattedPrice = typeof product.currentPrice === 'number' 
+                            ? product.currentPrice.toFixed(2) 
+                            : product.currentPrice;
+
+                        priceDisplay = `<div class="price-tag">$${formattedPrice}`;
+
+                        // Handle discount percentage if available
+                        if (product.discountPercentage) {
+                            discountBadge = `<span class="discount-badge">-${product.discountPercentage}%</span>`;
+                            priceDisplay += discountBadge;
+                        }
+
+                        priceDisplay += `</div>`;
+
+                        // Handle original price if it exists
+                        if (product.originalPrice && product.originalPrice > product.currentPrice) {
+                            // Safely format the original price
+                            const formattedOriginal = typeof product.originalPrice === 'number'
+                                ? product.originalPrice.toFixed(2)
+                                : product.originalPrice;
+
+                            priceDisplay += `<div class="original-price">$${formattedOriginal}</div>`;
+                        }
+                    } else {
+                        priceDisplay = '<div class="price-tag">Price unavailable</div>';
+                    }
+
+                    // Format unit price if available
+                    let unitPriceDisplay = '';
+                    if (product.unitPrice && product.unitLabel) {
+                        // Safely format the unit price
+                        const formattedUnitPrice = typeof product.unitPrice === 'number'
+                            ? product.unitPrice.toFixed(2)
+                            : product.unitPrice;
+
+                        unitPriceDisplay = `<div class="small text-muted">$${formattedUnitPrice} / ${product.unitLabel}</div>`;
+                    }
+
+                    // Format availability badge
+                    const availabilityBadge = product.available
+                        ? '<span class="badge bg-success">Available</span>'
+                        : '<span class="badge bg-danger">Unavailable</span>';
+
+                    // Format offers and Scene+ offers
+                    let offersDisplay = '';
+                    if (product.offers && product.offers.length > 0) {
+                        offersDisplay = '<div class="mt-2 mb-2">';
+
+                        product.offers.forEach(offer => {
+                            if (offer.description && offer.description.includes('SCENE+')) {
+                                offersDisplay += `<span class="scene-badge">${offer.description}</span>`;
+                            } else if (offer.description) {
+                                offersDisplay += `<span class="offer-badge">${offer.description}</span>`;
+                            }
+                        });
+
+                        offersDisplay += '</div>';
+                    }
+
+                    // Add search term badge if available
+                    const searchTermBadge = product.searchTerm 
+                        ? `<div class="mb-2"><span class="badge bg-info">${product.searchTerm}</span></div>` 
+                        : '';
+
+                    productCard.innerHTML = `
+                        <div class="card product-card">
+                            <img src="${product.imageUrl || 'https://via.placeholder.com/200x200?text=No+Image'}" 
+                                 class="card-img-top product-img" alt="${product.name || 'Product Image'}">
+                            <div class="card-body">
+                                <h5 class="card-title">${product.name || 'Unknown Product'}</h5>
+                                <p class="card-text small text-muted">${product.brand || 'Unknown brand'}</p>
+                                ${searchTermBadge}
+                                ${offersDisplay}
+                                <div class="mb-2">
+                                    ${priceDisplay}
+                                    ${unitPriceDisplay}
+                                </div>
+                                <div>
+                                    ${availabilityBadge}
+                                </div>
+                            </div>
+                            <div class="card-footer bg-white">
+                                <small class="text-muted">ID: ${product.retailerProductId || product.productId || 'N/A'}</small>
+                            </div>
+                        </div>
+                    `;
+
+                    containerElement.appendChild(productCard);
+                });
+            }
+
+            function exportToExcel() {
+                if (!allSearchResults || allSearchResults.length === 0) {
+                    alert('No results to export');
+                    return;
+                }
+
+                // Create a new workbook
+                const wb = XLSX.utils.book_new();
+
+                // Prepare data for export - create a flat array of data
+                const exportData = allSearchResults.map(product => {
+                    // Format offers for Excel
+                    let sceneOffers = '';
+                    let otherOffers = '';
+
+                    if (product.offers && product.offers.length > 0) {
+                        product.offers.forEach(offer => {
+                            const offerText = offer.description || offer.promotionText || '';
+                            if (offerText && offerText.includes('SCENE+')) {
+                                sceneOffers += (sceneOffers ? ', ' : '') + offerText;
+                            } else if (offerText) {
+                                otherOffers += (otherOffers ? ', ' : '') + offerText;
+                            }
+                        });
+                    }
+
+                    // Calculate discount percentage if not already done
+                    let discountPercentage = product.discountPercentage;
+                    if (!discountPercentage && product.originalPrice && product.currentPrice) {
+                        try {
+                            const current = parseFloat(product.currentPrice);
+                            const original = parseFloat(product.originalPrice);
+                            if (original > current) {
+                                discountPercentage = Math.round(
+                                    ((original - current) / original) * 100
+                                );
+                            }
+                        } catch (e) {
+                            // Ignore calculation errors
+                        }
+                    }
+
+                    // Return formatted row
+                    return {
+                        "Search Term": product.searchTerm || 'N/A',
+                        "Product ID": product.retailerProductId || product.productId || 'N/A',
+                        "Name": product.name || 'N/A',
+                        "Brand": product.brand || 'N/A',
+                        "Category": product.category || 'N/A',
+                        "Current Price": product.currentPrice ? `$${product.currentPrice}` : 'N/A',
+                        "Original Price": product.originalPrice ? `$${product.originalPrice}` : 'N/A',
+                        "Discount %": discountPercentage ? `${discountPercentage}%` : 'N/A',
+                        "Unit Price": product.unitPrice ? `$${product.unitPrice}` : 'N/A',
+                        "Unit": product.unitLabel || 'N/A',
+                        "Available": product.available ? 'Yes' : 'No',
+                        "Scene+ Offers": sceneOffers || 'None',
+                        "Other Offers": otherOffers || 'None',
+                        "Image URL": product.imageUrl || 'N/A'
+                    };
+                });
+
+                // Convert to worksheet
+                const ws = XLSX.utils.json_to_sheet(exportData);
+
+                // Create column widths
+                const wscols = [
+                    {wch: 20}, // Search Term
+                    {wch: 15}, // Product ID
+                    {wch: 40}, // Name
+                    {wch: 15}, // Brand
+                    {wch: 25}, // Category
+                    {wch: 15}, // Current Price
+                    {wch: 15}, // Original Price
+                    {wch: 12}, // Discount %
+                    {wch: 15}, // Unit Price
+                    {wch: 10}, // Unit
+                    {wch: 10}, // Available
+                    {wch: 30}, // Scene+ Offers
+                    {wch: 30}, // Other Offers
+                    {wch: 50}  // Image URL
+                ];
+
+                ws['!cols'] = wscols;
+
+                // Add the worksheet to the workbook
+                XLSX.utils.book_append_sheet(wb, ws, 'Products');
+
+                // Get timestamp for filename
+                const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+
+                // Get region info for filename
+                const regionName = currentRegionInfo?.nickname || 'Unknown';
+                const postalCode = currentRegionInfo?.postalCode || '';
+
+                // Create a descriptive filename with region details
+                const filename = `Voila-${regionName}-${postalCode}-Products-${timestamp}.xlsx`;
+
+                // Generate Excel file
+                XLSX.writeFile(wb, filename);
+            }
+        });
+    </script>
+</body>
+</html>
