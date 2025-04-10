@@ -209,6 +209,38 @@
             margin: 20px 0;
         }
 
+        /* Progress Bar */
+        .progress-container {
+            margin-top: 15px;
+            display: none;
+        }
+
+        .progress {
+            height: 20px;
+            border-radius: 10px;
+            overflow: hidden;
+            background-color: #e9ecef;
+            box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.1);
+        }
+
+        .progress-bar {
+            background-color: var(--voila-dark-green);
+            color: var(--voila-white);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-shadow: 0 1px 1px rgba(0, 0, 0, 0.1);
+            transition: width 0.3s ease;
+        }
+
+        .progress-status {
+            margin-top: 8px;
+            font-size: 0.9rem;
+            color: var(--voila-dark-green);
+        }
+
         /* Form Elements Styles */
         .form-control {
             border-radius: 8px;
@@ -309,6 +341,20 @@
             text-decoration: underline;
         }
 
+        /* Filter Controls */
+        .filter-controls {
+            background-color: #f1f3f5;
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .filter-label {
+            font-weight: 600;
+            margin-right: 10px;
+            color: var(--voila-dark-green);
+        }
+
         /* Mobile Responsiveness */
         @media (max-width: 767.98px) {
             .card-header {
@@ -369,18 +415,14 @@
             </ol>
 
             <div class="alert alert-info">
-                <strong>Note:</strong> To change regions, you need to log in to your Voila account, book a slot in the desired region, 
-                perform a search in that region, then extract the new session ID.
-            </div>
-            
-            <div class="alert alert-info">
-                <strong>Product Codes:</strong> The system can recognize product codes in various formats:
+                <strong>Product Codes:</strong> You can paste product codes in any format:
                 <ul>
-                    <li>Multiple product codes separated by commas: <code>123456EA, 789012EA</code></li>
-                    <li>Multiple product codes separated by new lines (one per line)</li>
-                    <li>Multiple product codes separated by spaces: <code>123456EA 789012EA</code></li>
-                    <li>A continuous list of product codes ending with EA: <code>123456EA789012EA</code> (these will be automatically parsed)</li>
+                    <li>Comma-separated: <code>123456EA, 789012EA</code></li>
+                    <li>One code per line (as copied from Excel)</li>
+                    <li>Space-separated: <code>123456EA 789012EA</code></li>
+                    <li>Even a continuous list like <code>123456EA789012EA</code> will be automatically parsed into individual codes</li>
                 </ul>
+                For long lists (100+ codes), the system will process them in batches and show progress updates.
             </div>
         </div>
 
@@ -401,16 +443,16 @@
 
             <!-- Search Form -->
             <div class="mb-3">
-                <label for="searchTerms" class="form-label">Search Terms (separate multiple terms with commas, new lines, or spaces):</label>
-                <textarea class="form-control" id="searchTerms" rows="6" placeholder="Enter product names or IDs (comma, new line, or space separated)"></textarea>
+                <label for="searchTerms" class="form-label">Search Terms (paste product codes in any format):</label>
+                <textarea class="form-control" id="searchTerms" rows="6" placeholder="Paste product codes or search terms here (any format will work)"></textarea>
             </div>
             <div class="mb-3">
                 <label for="resultLimit" class="form-label">Result Limit per Search Term:</label>
                 <select class="form-select" id="resultLimit">
-                    <option value="10">10 results</option>
-                    <option value="20">20 results</option>
-                    <option value="50">50 results</option>
-                    <option value="all">All results</option>
+                    <option value="1" selected>1 result per term (fastest)</option>
+                    <option value="5">5 results per term</option>
+                    <option value="10">10 results per term</option>
+                    <option value="all">All results (slowest)</option>
                 </select>
             </div>
             <button id="searchButton" class="btn btn-primary w-100 mb-3">Search Products</button>
@@ -422,7 +464,15 @@
             <div class="spinner-border text-primary" role="status">
                 <span class="visually-hidden">Loading...</span>
             </div>
-            <p class="mt-2">Searching products...</p>
+            <p class="mt-2" id="loadingMessage">Searching products...</p>
+            
+            <!-- Progress Bar -->
+            <div class="progress-container" id="progressContainer">
+                <div class="progress">
+                    <div class="progress-bar" id="progressBar" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0%</div>
+                </div>
+                <div class="progress-status" id="progressStatus">Initializing search...</div>
+            </div>
         </div>
 
         <!-- Results Section -->
@@ -441,6 +491,26 @@
                     <div id="parsedTermsList"></div>
                 </div>
                 
+                <!-- Filter Controls -->
+                <div id="filterControls" class="filter-controls" style="display: none;">
+                    <div class="row">
+                        <div class="col-md-6 mb-2 mb-md-0">
+                            <span class="filter-label">Show:</span>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="checkbox" id="showFoundProducts" checked>
+                                <label class="form-check-label" for="showFoundProducts">Found Products</label>
+                            </div>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="checkbox" id="showNotFoundProducts" checked>
+                                <label class="form-check-label" for="showNotFoundProducts">Not Found</label>
+                            </div>
+                        </div>
+                        <div class="col-md-6 text-md-end">
+                            <button id="toggleAllNotFound" class="btn btn-sm btn-outline-secondary">Show Only Not Found</button>
+                        </div>
+                    </div>
+                </div>
+                
                 <div id="resultsContainer" class="row"></div>
             </div>
         </div>
@@ -454,6 +524,10 @@
             const searchButton = document.getElementById('searchButton');
             const exportButton = document.getElementById('exportButton');
             const loadingSpinner = document.getElementById('loadingSpinner');
+            const loadingMessage = document.getElementById('loadingMessage');
+            const progressContainer = document.getElementById('progressContainer');
+            const progressBar = document.getElementById('progressBar');
+            const progressStatus = document.getElementById('progressStatus');
             const resultsContainer = document.getElementById('resultsContainer');
             const searchInfo = document.getElementById('searchInfo');
             const resultStats = document.getElementById('resultStats');
@@ -463,6 +537,10 @@
             const parsedTermsSection = document.getElementById('parsedTermsSection');
             const parsedTermsList = document.getElementById('parsedTermsList');
             const hideTermsToggle = document.getElementById('hideTermsToggle');
+            const filterControls = document.getElementById('filterControls');
+            const showFoundProducts = document.getElementById('showFoundProducts');
+            const showNotFoundProducts = document.getElementById('showNotFoundProducts');
+            const toggleAllNotFound = document.getElementById('toggleAllNotFound');
 
             // Store results for export
             let allSearchResults = [];
@@ -471,6 +549,9 @@
             let notFoundProducts = 0;
             let currentRegionInfo = null;
             let parsedTerms = [];
+            let isProcessingLargeRequest = false;
+            let streamingResponse = null;
+            let abortController = null;
 
             // Set up event listeners
             searchButton.addEventListener('click', searchProducts);
@@ -486,6 +567,22 @@
                     termsListDiv.style.display = 'none';
                     this.textContent = 'Show';
                 }
+            });
+            
+            // Filter event listeners
+            showFoundProducts.addEventListener('change', filterResults);
+            showNotFoundProducts.addEventListener('change', filterResults);
+            toggleAllNotFound.addEventListener('click', function() {
+                if (showNotFoundProducts.checked && !showFoundProducts.checked) {
+                    // If only showing not found, show all
+                    showFoundProducts.checked = true;
+                    showNotFoundProducts.checked = true;
+                } else {
+                    // Otherwise, show only not found
+                    showFoundProducts.checked = false;
+                    showNotFoundProducts.checked = true;
+                }
+                filterResults();
             });
 
             // Add event listener to check region info when session ID changes
@@ -503,6 +600,42 @@
                     searchProducts();
                 }
             });
+
+            // Function to filter results based on checkboxes
+            function filterResults() {
+                const showFound = showFoundProducts.checked;
+                const showNotFound = showNotFoundProducts.checked;
+                
+                // Update the toggle button text
+                if (!showFound && showNotFound) {
+                    toggleAllNotFound.textContent = "Show All Products";
+                } else {
+                    toggleAllNotFound.textContent = "Show Only Not Found";
+                }
+                
+                // Get all product cards
+                const foundCards = document.querySelectorAll('.product-card:not(.not-found-card)');
+                const notFoundCards = document.querySelectorAll('.product-card.not-found-card');
+                
+                // Apply filters
+                foundCards.forEach(card => {
+                    const parentCol = card.closest('.col-md-4');
+                    if (parentCol) {
+                        parentCol.style.display = showFound ? 'block' : 'none';
+                    }
+                });
+                
+                notFoundCards.forEach(card => {
+                    const parentCol = card.closest('.col-md-4');
+                    if (parentCol) {
+                        parentCol.style.display = showNotFound ? 'block' : 'none';
+                    }
+                });
+                
+                // Update results count
+                const visibleCards = document.querySelectorAll('.col-md-4[style="display: block;"]').length;
+                resultStats.textContent = `Found ${totalFoundProducts} products, ${notFoundProducts} not found, showing ${visibleCards} of ${displayedProducts} total`;
+            }
 
             // Function to check region info when session ID is entered
             function checkRegionInfo() {
@@ -529,7 +662,31 @@
                         limit: 1  // Only need one result
                     })
                 })
-                .then(response => response.json())
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`Server returned ${response.status}: ${response.statusText}`);
+                    }
+                    
+                    // Check if there's content
+                    if (response.headers.get('content-length') === '0') {
+                        throw new Error('Server returned an empty response');
+                    }
+                    
+                    // Parse as JSON with error handling
+                    return response.text().then(text => {
+                        if (!text || text.trim() === '') {
+                            throw new Error('Empty response from server');
+                        }
+                        
+                        try {
+                            return JSON.parse(text);
+                        } catch (e) {
+                            console.error('JSON parse error:', e);
+                            console.error('Raw response:', text);
+                            throw new Error(`Invalid JSON response: ${e.message}`);
+                        }
+                    });
+                })
                 .then(data => {
                     if (data.error) {
                         regionInfoBanner.style.display = 'none';
@@ -565,20 +722,203 @@
                 });
             }
 
-            // Helper function to recognize EA product code pattern
-            function parseEACodes(input) {
-                // This will parse out sequences like "123456EA789012EA" into individual codes
-                if (input && input.includes('EA')) {
-                    // Use regex to find all patterns of digits followed by "EA"
-                    const matches = input.match(/\d+EA/g);
-                    if (matches && matches.length > 1) {
-                        return matches;
+            // Function to handle streaming response for large requests
+            function handleStreamingResponse(reader, decoder, buffer = "") {
+                return reader.read().then(({ done, value }) => {
+                    if (done) {
+                        console.log("Stream complete");
+                        if (buffer.length > 0) {
+                            try {
+                                const jsonData = JSON.parse(buffer);
+                                processResults(jsonData);
+                            } catch (e) {
+                                console.error("Error parsing final buffer:", e);
+                                console.error("Buffer content:", buffer);
+                            }
+                        }
+                        
+                        // Hide loading spinner when done
+                        loadingSpinner.style.display = 'none';
+                        
+                        // Update progress bar
+                        updateProgress(100, "Processing complete!");
+                        setTimeout(() => {
+                            progressContainer.style.display = 'none';
+                        }, 2000);
+                        
+                        isProcessingLargeRequest = false;
+                        streamingResponse = null;
+                        return;
                     }
-                }
-                return [input]; // Return original if no EA pattern found
+                    
+                    // Decode the current chunk
+                    const chunk = decoder.decode(value, { stream: true });
+                    buffer += chunk;
+                    
+                    try {
+                        // Try to parse the buffer as JSON
+                        const jsonData = JSON.parse(buffer);
+                        // If we get here, it's valid JSON
+                        processResults(jsonData);
+                        buffer = "";
+                    } catch (e) {
+                        // Not valid JSON yet, continue accumulating
+                        // Nothing to do, just continue
+                    }
+                    
+                    // Continue reading
+                    return handleStreamingResponse(reader, decoder, buffer);
+                });
             }
 
+            // Function to update progress bar
+            function updateProgress(percent, statusText) {
+                if (progressContainer.style.display === 'none') {
+                    progressContainer.style.display = 'block';
+                }
+                
+                progressBar.style.width = `${percent}%`;
+                progressBar.setAttribute('aria-valuenow', percent);
+                progressBar.textContent = `${Math.round(percent)}%`;
+                progressStatus.textContent = statusText;
+            }
+
+            // Function to process and display search results
+            function processResults(data) {
+                // If this is not a streaming response, hide loading spinner
+                if (!isProcessingLargeRequest) {
+                    loadingSpinner.style.display = 'none';
+                }
+                
+                // If there's an error, show it and stop
+                if (data.error) {
+                    searchInfo.style.display = 'block';
+                    searchResultsTitle.textContent = `Error`;
+                    resultStats.innerHTML = `<div class="alert alert-danger">Error: ${data.error}</div>`;
+                    return;
+                }
+
+                // Store region info if available
+                if (data.region_info) {
+                    currentRegionInfo = data.region_info;
+
+                    // Update region banner
+                    regionInfoBanner.style.display = 'flex';
+                    const regionName = data.region_info.nickname || 'Unknown Region';
+                    const address = data.region_info.displayAddress || '';
+                    const postalCode = data.region_info.postalCode || '';
+
+                    regionText.innerHTML = `
+                        <div>
+                            <strong>Request sent from ${regionName} region</strong><br>
+                            ${address}<br>
+                            Postal Code: ${postalCode}
+                        </div>
+                    `;
+                }
+
+                // Display parsed terms if available
+                if (data.parsed_terms && data.parsed_terms.length > 0) {
+                    parsedTerms = data.parsed_terms;
+                    
+                    // Show the parsed terms section
+                    parsedTermsSection.style.display = 'block';
+                    parsedTermsList.innerHTML = '';
+                    
+                    // Create the list of parsed terms
+                    const termsList = document.createElement('ul');
+                    parsedTerms.forEach(term => {
+                        const listItem = document.createElement('li');
+                        listItem.textContent = term;
+                        termsList.appendChild(listItem);
+                    });
+                    
+                    parsedTermsList.appendChild(termsList);
+                }
+
+                // For streaming responses, update progress if available
+                if (data.status === 'processing' && data.total_terms && data.total_batches) {
+                    loadingMessage.textContent = `Processing ${data.total_terms} product codes in ${data.total_batches} batches...`;
+                    // Don't update progress yet, we'll do that as products come in
+                }
+
+                // Count found and not found products
+                if (data.products && data.products.length) {
+                    // Store all products for display and export
+                    allSearchResults = data.products;
+                    
+                    // Count normal and not found products
+                    const foundProducts = data.products.filter(p => p.found === true);
+                    const notFoundProds = data.products.filter(p => p.found === false);
+                    
+                    totalFoundProducts = data.total_found || foundProducts.length;
+                    notFoundProducts = notFoundProds.length;
+                    displayedProducts = data.products.length;
+                    
+                    // Show filter controls if we have both found and not found
+                    if (foundProducts.length > 0 && notFoundProds.length > 0) {
+                        filterControls.style.display = 'block';
+                    }
+                    
+                    // For streaming response, update progress based on processed products
+                    if (isProcessingLargeRequest && data.total_processed && data.total_terms) {
+                        const percentComplete = (data.total_processed / data.total_terms) * 100;
+                        updateProgress(
+                            percentComplete,
+                            `Processed ${data.total_processed} of ${data.total_terms} terms (${totalFoundProducts} products found, ${notFoundProducts} not found)`
+                        );
+                    }
+                }
+
+                // Update results title
+                const regionName = currentRegionInfo?.nickname || 'Unknown Region';
+                searchResultsTitle.textContent = `Search Results for ${regionName}`;
+
+                // Update stats
+                resultStats.textContent = `Found ${totalFoundProducts} products, ${notFoundProducts} not found, showing ${displayedProducts} total`;
+
+                // Show export button if we have results
+                exportButton.style.display = allSearchResults.length > 0 ? 'block' : 'none';
+
+                // Show results section
+                searchInfo.style.display = 'block';
+
+                // Display products
+                displayResults(allSearchResults, resultsContainer);
+                
+                // Apply any active filters
+                if (filterControls.style.display !== 'none') {
+                    filterResults();
+                }
+            }
+
+            // Abort any in-progress request
+            function abortCurrentRequest() {
+                if (abortController) {
+                    abortController.abort();
+                    abortController = null;
+                }
+                
+                if (streamingResponse) {
+                    try {
+                        // Try to cancel the reader if it exists
+                        if (streamingResponse.reader && streamingResponse.reader.cancel) {
+                            streamingResponse.reader.cancel();
+                        }
+                    } catch (e) {
+                        console.error("Error cancelling stream:", e);
+                    }
+                    streamingResponse = null;
+                }
+                
+                isProcessingLargeRequest = false;
+            }
+
+            // Main search function
             function searchProducts() {
+                // Reset any previous search
+                abortCurrentRequest();
+                
                 const sessionId = document.getElementById('sessionId').value.trim();
                 const searchTermsInput = document.getElementById('searchTerms').value.trim();
                 const resultLimit = document.getElementById('resultLimit').value;
@@ -593,13 +933,19 @@
                     alert('Please enter at least one search term');
                     return;
                 }
+                
+                // Create abort controller for request cancellation
+                abortController = new AbortController();
 
                 // Show loading spinner
                 loadingSpinner.style.display = 'block';
+                progressContainer.style.display = 'none';
+                loadingMessage.textContent = 'Searching products...';
                 resultsContainer.innerHTML = '';
                 searchInfo.style.display = 'none';
                 exportButton.style.display = 'none';
                 parsedTermsSection.style.display = 'none';
+                filterControls.style.display = 'none';
 
                 // Reset results
                 allSearchResults = [];
@@ -608,109 +954,141 @@
                 notFoundProducts = 0;
                 parsedTerms = [];
 
-                // Make API request with all search terms at once
+                // Prepare request payload
                 const payload = {
                     sessionId: sessionId,
-                    searchTerm: searchTermsInput,  // Pass the entire string with all search terms
+                    searchTerm: searchTermsInput,
                     limit: resultLimit
                 };
-
-                // Make API request
-                fetch('/api/fetch-product', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(payload)
-                })
-                .then(response => response.json())
-                .then(data => {
-                    // Hide loading spinner
-                    loadingSpinner.style.display = 'none';
-
-                    if (data.error) {
+                
+                // Check if this might be a large request (more than 50 lines or commas)
+                const commaCount = (searchTermsInput.match(/,/g) || []).length;
+                const lineCount = (searchTermsInput.match(/\n/g) || []).length;
+                const eaCodeCount = (searchTermsInput.match(/\d+EA/g) || []).length;
+                
+                isProcessingLargeRequest = (commaCount + lineCount > 50) || (eaCodeCount > 50) || searchTermsInput.length > 1000;
+                
+                if (isProcessingLargeRequest) {
+                    // For large requests, use streaming response
+                    loadingMessage.textContent = 'Processing large request, please wait...';
+                    updateProgress(0, 'Preparing to process large batch of product codes...');
+                    
+                    fetch('/api/fetch-product', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(payload),
+                        signal: abortController.signal
+                    })
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error(`Server returned ${response.status}: ${response.statusText}`);
+                        }
+                        
+                        // Initialize stream processing
+                        const reader = response.body.getReader();
+                        const decoder = new TextDecoder();
+                        
+                        // Store stream info for potential cancellation
+                        streamingResponse = { reader, decoder };
+                        
+                        // Begin processing the stream
+                        return handleStreamingResponse(reader, decoder);
+                    })
+                    .catch(error => {
+                        loadingSpinner.style.display = 'none';
                         searchInfo.style.display = 'block';
                         searchResultsTitle.textContent = `Error`;
-                        resultStats.innerHTML = `<div class="alert alert-danger">Error: ${data.error}</div>`;
-                        return;
-                    }
-
-                    // Store region info if available
-                    if (data.region_info) {
-                        currentRegionInfo = data.region_info;
-
-                        // Update region banner
-                        regionInfoBanner.style.display = 'flex';
-                        const regionName = data.region_info.nickname || 'Unknown Region';
-                        const address = data.region_info.displayAddress || '';
-                        const postalCode = data.region_info.postalCode || '';
-
-                        regionText.innerHTML = `
-                            <div>
-                                <strong>Request sent from ${regionName} region</strong><br>
-                                ${address}<br>
-                                Postal Code: ${postalCode}
-                            </div>
-                        `;
-                    }
-
-                    // Display parsed terms if available
-                    if (data.parsed_terms && data.parsed_terms.length > 0) {
-                        parsedTerms = data.parsed_terms;
                         
-                        // Show the parsed terms section
-                        parsedTermsSection.style.display = 'block';
-                        parsedTermsList.innerHTML = '';
+                        let errorMessage;
+                        if (error.name === 'AbortError') {
+                            errorMessage = '<div class="alert alert-warning">Search was cancelled.</div>';
+                        } else {
+                            console.error('Request error:', error);
+                            errorMessage = `<div class="alert alert-danger">
+                                <strong>Error:</strong> ${error.message}
+                                <hr>
+                                <p>Troubleshooting tips:</p>
+                                <ul>
+                                    <li>Check your internet connection</li>
+                                    <li>Verify your session ID is still valid</li>
+                                    <li>Your search might be too large - try reducing the number of terms</li>
+                                    <li>Try refreshing the page and searching again</li>
+                                </ul>
+                            </div>`;
+                        }
                         
-                        // Create the list of parsed terms
-                        const termsList = document.createElement('ul');
-                        parsedTerms.forEach(term => {
-                            const listItem = document.createElement('li');
-                            listItem.textContent = term;
-                            termsList.appendChild(listItem);
+                        resultStats.innerHTML = errorMessage;
+                        
+                        isProcessingLargeRequest = false;
+                        streamingResponse = null;
+                    });
+                    
+                } else {
+                    // For regular requests, use normal fetch
+                    fetch('/api/fetch-product', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(payload),
+                        signal: abortController.signal
+                    })
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error(`Server returned ${response.status}: ${response.statusText}`);
+                        }
+                        
+                        // Check if there's content
+                        if (response.headers.get('content-length') === '0') {
+                            throw new Error('Server returned an empty response');
+                        }
+                        
+                        // Parse as JSON with error handling
+                        return response.text().then(text => {
+                            if (!text || text.trim() === '') {
+                                throw new Error('Empty response from server');
+                            }
+                            
+                            try {
+                                return JSON.parse(text);
+                            } catch (e) {
+                                console.error('JSON parse error:', e);
+                                console.error('Raw response:', text);
+                                throw new Error(`Invalid JSON response: ${e.message}`);
+                            }
                         });
+                    })
+                    .then(data => {
+                        processResults(data);
+                    })
+                    .catch(error => {
+                        loadingSpinner.style.display = 'none';
+                        searchInfo.style.display = 'block';
+                        searchResultsTitle.textContent = `Error`;
                         
-                        parsedTermsList.appendChild(termsList);
-                    }
-
-                    // Count found and not found products
-                    if (data.products && data.products.length) {
-                        // Count normal and not found products
-                        const foundProducts = data.products.filter(p => p.found === true);
-                        const notFoundProds = data.products.filter(p => p.found === false);
+                        let errorMessage;
+                        if (error.name === 'AbortError') {
+                            errorMessage = '<div class="alert alert-warning">Search was cancelled.</div>';
+                        } else {
+                            console.error('Request error:', error);
+                            errorMessage = `<div class="alert alert-danger">
+                                <strong>Error:</strong> ${error.message}
+                                <hr>
+                                <p>Troubleshooting tips:</p>
+                                <ul>
+                                    <li>Check your internet connection</li>
+                                    <li>Verify your session ID is still valid</li>
+                                    <li>Your search might be too large - try reducing the number of terms</li>
+                                    <li>Try refreshing the page and searching again</li>
+                                </ul>
+                            </div>`;
+                        }
                         
-                        totalFoundProducts = data.total_found || foundProducts.length;
-                        notFoundProducts = notFoundProds.length;
-                        displayedProducts = data.products.length;
-                        
-                        // Store all products for display and export
-                        allSearchResults = data.products;
-                    }
-
-                    // Update results title
-                    const regionName = currentRegionInfo?.nickname || 'Unknown Region';
-                    searchResultsTitle.textContent = `Search Results for ${regionName}`;
-
-                    // Update stats
-                    resultStats.textContent = `Found ${totalFoundProducts} products, ${notFoundProducts} not found, showing ${displayedProducts} total`;
-
-                    // Show export button if we have results
-                    exportButton.style.display = allSearchResults.length > 0 ? 'block' : 'none';
-
-                    // Show results section
-                    searchInfo.style.display = 'block';
-
-                    // Display products
-                    displayResults(allSearchResults, resultsContainer);
-                })
-                .catch(error => {
-                    loadingSpinner.style.display = 'none';
-                    searchInfo.style.display = 'block';
-                    searchResultsTitle.textContent = `Error`;
-                    resultStats.innerHTML = `<div class="alert alert-danger">Error: ${error}</div>`;
-                    exportButton.style.display = 'none';
-                    console.error('Error:', error);
-                });
+                        resultStats.innerHTML = errorMessage;
+                    });
+                }
             }
 
             function displayResults(products, containerElement) {
@@ -719,29 +1097,38 @@
                     return;
                 }
 
-                // Clear previous results
-                containerElement.innerHTML = '';
+                // Only clear previous results if not streaming
+                if (!isProcessingLargeRequest) {
+                    containerElement.innerHTML = '';
+                }
 
-                // First display found products, then not found ones
+                // Separate found and not found products
                 const foundProducts = products.filter(product => product.found === true);
                 const notFoundProducts = products.filter(product => product.found === false);
 
-                // Display found products
+                // Display found products first
                 foundProducts.forEach(product => {
-                    const productCard = createProductCard(product);
-                    containerElement.appendChild(productCard);
+                    // Only add if this product isn't already displayed
+                    if (!document.getElementById(`product-${product.retailerProductId || product.productId || product.searchTerm}`)) {
+                        const productCard = createProductCard(product);
+                        containerElement.appendChild(productCard);
+                    }
                 });
 
-                // Display not found products
+                // Then display not found products
                 notFoundProducts.forEach(product => {
-                    const notFoundCard = createNotFoundCard(product);
-                    containerElement.appendChild(notFoundCard);
+                    // Only add if this product isn't already displayed
+                    if (!document.getElementById(`not-found-${product.searchTerm}`)) {
+                        const notFoundCard = createNotFoundCard(product);
+                        containerElement.appendChild(notFoundCard);
+                    }
                 });
             }
 
             function createProductCard(product) {
                 const productCard = document.createElement('div');
                 productCard.className = 'col-md-4 col-lg-3 mb-4';
+                productCard.id = `product-${product.retailerProductId || product.productId || product.searchTerm}`;
 
                 // Format price display - Handle non-number values
                 let priceDisplay = '';
@@ -842,6 +1229,7 @@
             function createNotFoundCard(product) {
                 const notFoundCard = document.createElement('div');
                 notFoundCard.className = 'col-md-4 col-lg-3 mb-4';
+                notFoundCard.id = `not-found-${product.searchTerm}`;
 
                 // Add search term badge if available
                 const searchTermBadge = product.searchTerm 
