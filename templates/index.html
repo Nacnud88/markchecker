@@ -68,6 +68,34 @@
             opacity: 0.9;
             letter-spacing: 0.5px;
         }
+        
+        /* Tab Navigation */
+        .nav-tabs {
+            margin-bottom: 20px;
+            border-bottom: 2px solid var(--voila-dark-green);
+        }
+        
+        .nav-tabs .nav-link {
+            color: var(--voila-dark-green);
+            border: none;
+            border-bottom: 3px solid transparent;
+            font-weight: 500;
+            padding: 0.75rem 1.5rem;
+            margin-right: 10px;
+            border-radius: 0;
+        }
+        
+        .nav-tabs .nav-link:hover {
+            border-color: transparent;
+            background-color: rgba(0, 72, 59, 0.05);
+        }
+        
+        .nav-tabs .nav-link.active {
+            color: var(--voila-dark-green);
+            background-color: transparent;
+            border-bottom: 3px solid var(--voila-cyan);
+            font-weight: 600;
+        }
 
         /* Product Card Styles */
         .product-card {
@@ -240,6 +268,18 @@
             font-size: 0.9rem;
             color: var(--voila-dark-green);
         }
+        
+        .current-item {
+            margin-top: 5px;
+            padding: 10px;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            font-size: 0.9rem;
+            display: none;
+        }
 
         /* Form Elements Styles */
         .form-control {
@@ -354,6 +394,47 @@
             margin-right: 10px;
             color: var(--voila-dark-green);
         }
+        
+        /* Export Modal */
+        .modal-header {
+            background-color: var(--voila-dark-green);
+            color: white;
+        }
+        
+        .modal-header .btn-close {
+            filter: invert(1) brightness(200%);
+        }
+        
+        .export-option {
+            margin-bottom: 10px;
+            padding: 10px;
+            border-radius: 5px;
+            border: 1px solid #e9ecef;
+            transition: all 0.2s;
+        }
+        
+        .export-option:hover {
+            background-color: #f8f9fa;
+            border-color: var(--voila-cyan);
+        }
+        
+        .export-option input {
+            margin-right: 10px;
+        }
+        
+        .export-option label {
+            width: 100%;
+            cursor: pointer;
+            margin-bottom: 0;
+        }
+        
+        .duplicate-message {
+            background-color: #e9ecef;
+            padding: 10px 15px;
+            margin-bottom: 15px;
+            border-radius: 5px;
+            border-left: 4px solid var(--voila-orange);
+        }
 
         /* Mobile Responsiveness */
         @media (max-width: 767.98px) {
@@ -393,125 +474,214 @@
     </nav>
 
     <div class="container">
-        <!-- Instructions -->
-        <div class="instructions">
-            <h4>How to Use the Voila Price Checker</h4>
-            <p>This tool allows you to search for multiple products on Voila.ca using your personal session ID.</p>
-            <ol>
-                <li>Enter your Voila.ca session ID in the field below</li>
-                <li>Enter search terms or product IDs to find products (separate multiple terms with commas, new lines, or spaces)</li>
-                <li>View the product details and prices</li>
-            </ol>
+        <!-- Tab Navigation -->
+        <ul class="nav nav-tabs" id="myTab" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="search-tab" data-bs-toggle="tab" data-bs-target="#search-tab-pane" type="button" role="tab" aria-controls="search-tab-pane" aria-selected="true">
+                    <i class="fas fa-search me-2"></i>Search
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="instructions-tab" data-bs-toggle="tab" data-bs-target="#instructions-tab-pane" type="button" role="tab" aria-controls="instructions-tab-pane" aria-selected="false">
+                    <i class="fas fa-info-circle me-2"></i>Instructions
+                </button>
+            </li>
+        </ul>
+        
+        <!-- Tab Content -->
+        <div class="tab-content" id="myTabContent">
+            <!-- Search Tab -->
+            <div class="tab-pane fade show active" id="search-tab-pane" role="tabpanel" aria-labelledby="search-tab" tabindex="0">
+                <!-- Session ID Input -->
+                <div class="search-container">
+                    <div class="session-id-section">
+                        <div class="mb-3">
+                            <label for="sessionId" class="form-label">Voila Session ID:</label>
+                            <input type="text" class="form-control" id="sessionId" placeholder="Paste your global_sid here">
+                        </div>
+                    </div>
 
-            <h5 class="mt-3">How to Get Your Session ID:</h5>
-            <ol>
-                <li>Log in to your Voila.ca account</li>
-                <li>Book a time in the region you want to search</li>
-                <li>Perform any search in the Voila.ca interface</li>
-                <li>Open your browser's developer tools (F12 or right-click and select "Inspect")</li>
-                <li>Go to the "Application" or "Storage" tab</li>
-                <li>Look for "Cookies" and find the "global_sid" cookie value</li>
-                <li>Copy the entire value and paste it below</li>
-            </ol>
+                    <!-- Region Info Banner (Initially Hidden) -->
+                    <div id="regionInfoBanner" class="region-info-banner" style="display: none;">
+                        <i class="fas fa-map-marker-alt region-icon"></i>
+                        <div id="regionText"></div>
+                    </div>
 
-            <div class="alert alert-info">
-                <strong>Product Codes:</strong> You can paste product codes in any format:
-                <ul>
-                    <li>Comma-separated: <code>123456EA, 789012EA</code></li>
-                    <li>One code per line (as copied from Excel)</li>
-                    <li>Space-separated: <code>123456EA 789012EA</code></li>
-                    <li>Even a continuous list like <code>123456EA789012EA</code> will be automatically parsed into individual codes</li>
-                </ul>
-                For long lists (100+ codes), the system will process them in batches and show progress updates.
-            </div>
-        </div>
+                    <!-- Duplicate Message (Initially Hidden) -->
+                    <div id="duplicateMessage" class="duplicate-message" style="display: none;">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <span id="duplicateText"></span>
+                    </div>
 
-        <!-- Session ID Input -->
-        <div class="search-container">
-            <div class="session-id-section">
-                <div class="mb-3">
-                    <label for="sessionId" class="form-label">Voila Session ID:</label>
-                    <input type="text" class="form-control" id="sessionId" placeholder="Paste your global_sid here">
+                    <!-- Search Form -->
+                    <div class="mb-3">
+                        <label for="searchTerms" class="form-label">Search Terms (paste product codes in any format):</label>
+                        <textarea class="form-control" id="searchTerms" rows="6" placeholder="Paste product codes or search terms here (any format will work)"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label for="resultLimit" class="form-label">Result Limit per Search Term:</label>
+                        <select class="form-select" id="resultLimit">
+                            <option value="1" selected>1 result per term (fastest)</option>
+                            <option value="5">5 results per term</option>
+                            <option value="10">10 results per term</option>
+                            <option value="all">All results (slowest)</option>
+                        </select>
+                    </div>
+                    <button id="searchButton" class="btn btn-primary w-100 mb-3">Search Products</button>
+                    <button id="exportButton" class="btn btn-success w-100" style="display: none;">Export to Excel</button>
+                </div>
+
+                <!-- Loading Spinner -->
+                <div class="loading-spinner" id="loadingSpinner">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="mt-2" id="loadingMessage">Searching products...</p>
+                    
+                    <!-- Progress Bar -->
+                    <div class="progress-container" id="progressContainer">
+                        <div class="progress">
+                            <div class="progress-bar" id="progressBar" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0%</div>
+                        </div>
+                        <div class="progress-status" id="progressStatus">Initializing search...</div>
+                        <div class="current-item" id="currentItem">Processing: </div>
+                    </div>
+                </div>
+
+                <!-- Results Section -->
+                <div id="searchInfo" class="results-card" style="display: none;">
+                    <div class="results-header">
+                        <h5 id="searchResultsTitle">Search Results</h5>
+                        <span id="resultStats" class="badge bg-light text-dark"></span>
+                    </div>
+                    <div class="card-body">
+                        <!-- Parsed Terms Section (Initially Hidden) -->
+                        <div id="parsedTermsSection" class="parsed-terms" style="display: none;">
+                            <div class="d-flex justify-content-between">
+                                <h6>Parsed Search Terms</h6>
+                                <span id="hideTermsToggle" class="parsed-terms-toggle">Hide</span>
+                            </div>
+                            <div id="parsedTermsList"></div>
+                        </div>
+                        
+                        <!-- Enhanced Filter Controls -->
+                        <div id="filterControls" class="filter-controls" style="display: none;">
+                            <div class="row">
+                                <div class="col-md-12 mb-2">
+                                    <span class="filter-label">Show:</span>
+                                    <div class="btn-group" role="group">
+                                        <input type="radio" class="btn-check" name="productFilter" id="filterAll" autocomplete="off" checked>
+                                        <label class="btn btn-outline-secondary" for="filterAll">All Products</label>
+                                        
+                                        <input type="radio" class="btn-check" name="productFilter" id="filterFound" autocomplete="off">
+                                        <label class="btn btn-outline-success" for="filterFound">Found Products</label>
+                                        
+                                        <input type="radio" class="btn-check" name="productFilter" id="filterNotFound" autocomplete="off">
+                                        <label class="btn btn-outline-danger" for="filterNotFound">Not Found</label>
+                                        
+                                        <input type="radio" class="btn-check" name="productFilter" id="filterAvailable" autocomplete="off">
+                                        <label class="btn btn-outline-primary" for="filterAvailable">Available</label>
+                                        
+                                        <input type="radio" class="btn-check" name="productFilter" id="filterUnavailable" autocomplete="off">
+                                        <label class="btn btn-outline-warning" for="filterUnavailable">Unavailable</label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div id="resultsContainer" class="row"></div>
+                    </div>
                 </div>
             </div>
-
-            <!-- Region Info Banner (Initially Hidden) -->
-            <div id="regionInfoBanner" class="region-info-banner" style="display: none;">
-                <i class="fas fa-map-marker-alt region-icon"></i>
-                <div id="regionText"></div>
-            </div>
-
-            <!-- Search Form -->
-            <div class="mb-3">
-                <label for="searchTerms" class="form-label">Search Terms (paste product codes in any format):</label>
-                <textarea class="form-control" id="searchTerms" rows="6" placeholder="Paste product codes or search terms here (any format will work)"></textarea>
-            </div>
-            <div class="mb-3">
-                <label for="resultLimit" class="form-label">Result Limit per Search Term:</label>
-                <select class="form-select" id="resultLimit">
-                    <option value="1" selected>1 result per term (fastest)</option>
-                    <option value="5">5 results per term</option>
-                    <option value="10">10 results per term</option>
-                    <option value="all">All results (slowest)</option>
-                </select>
-            </div>
-            <button id="searchButton" class="btn btn-primary w-100 mb-3">Search Products</button>
-            <button id="exportButton" class="btn btn-success w-100" style="display: none;">Export to Excel</button>
-        </div>
-
-        <!-- Loading Spinner -->
-        <div class="loading-spinner" id="loadingSpinner">
-            <div class="spinner-border text-primary" role="status">
-                <span class="visually-hidden">Loading...</span>
-            </div>
-            <p class="mt-2" id="loadingMessage">Searching products...</p>
             
-            <!-- Progress Bar -->
-            <div class="progress-container" id="progressContainer">
-                <div class="progress">
-                    <div class="progress-bar" id="progressBar" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0%</div>
+            <!-- Instructions Tab -->
+            <div class="tab-pane fade" id="instructions-tab-pane" role="tabpanel" aria-labelledby="instructions-tab" tabindex="0">
+                <div class="instructions">
+                    <h4>How to Use the Voila Price Checker</h4>
+                    <p>This tool allows you to search for multiple products on Voila.ca using your personal session ID.</p>
+                    <ol>
+                        <li>Enter your Voila.ca session ID in the field provided</li>
+                        <li>Enter search terms or product IDs to find products (separate multiple terms with commas, new lines, or spaces)</li>
+                    </ol>
+
+                    <h5 class="mt-3">How to Get Your Session ID:</h5>
+                    <ol>
+                        <li>Log in to your Voila.ca account</li>
+                        <li>Book a time in the region you want to search</li>
+                        <li>Open your browser's developer tools (F12 or right-click and select "Inspect")</li>
+                        <li>Go to the "Application" or "Storage" tab</li>
+                        <li>Look for "Cookies" and find the "global_sid" cookie value</li>
+                        <li>Copy the entire value and paste it in the Session ID field</li>
+                    </ol>
+
+                    <div class="alert alert-info">
+                        <strong>Product Codes:</strong> You can paste product codes in any format:
+                        <ul>
+                            <li>Comma-separated: <code>123456EA, 789012EA</code></li>
+                            <li>One code per line (as copied from Excel)</li>
+                            <li>Space-separated: <code>123456EA 789012EA</code></li>
+                            <li>Even a continuous list like <code>123456EA789012EA</code> will be automatically parsed into individual codes</li>
+                        </ul>
+                        For long lists (100+ codes), the system will process them in batches and show progress updates.
+                    </div>
+                    
+                    <h5 class="mt-3">Features:</h5>
+                    <ul>
+                        <li><strong>Filtering</strong> - Use the filter controls to show only specific types of products (all, found, not found, available, unavailable)</li>
+                        <li><strong>Export to Excel</strong> - You can export your search results to an Excel spreadsheet with various filtering options</li>
+                        <li><strong>Duplicate Detection</strong> - The tool automatically detects and removes duplicate search terms</li>
+                        <li><strong>Large Batch Processing</strong> - For large lists, the tool processes items in batches with progress tracking</li>
+                    </ul>
                 </div>
-                <div class="progress-status" id="progressStatus">Initializing search...</div>
             </div>
         </div>
+    </div>
 
-        <!-- Results Section -->
-        <div id="searchInfo" class="results-card" style="display: none;">
-            <div class="results-header">
-                <h5 id="searchResultsTitle">Search Results</h5>
-                <span id="resultStats" class="badge bg-light text-dark"></span>
-            </div>
-            <div class="card-body">
-                <!-- Parsed Terms Section (Initially Hidden) -->
-                <div id="parsedTermsSection" class="parsed-terms" style="display: none;">
-                    <div class="d-flex justify-content-between">
-                        <h6>Parsed Search Terms</h6>
-                        <span id="hideTermsToggle" class="parsed-terms-toggle">Hide</span>
-                    </div>
-                    <div id="parsedTermsList"></div>
+    <!-- Export Options Modal -->
+    <div class="modal fade" id="exportModal" tabindex="-1" aria-labelledby="exportModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="exportModalLabel">Export Options</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                
-                <!-- Filter Controls -->
-                <div id="filterControls" class="filter-controls" style="display: none;">
-                    <div class="row">
-                        <div class="col-md-6 mb-2 mb-md-0">
-                            <span class="filter-label">Show:</span>
-                            <div class="form-check form-check-inline">
-                                <input class="form-check-input" type="checkbox" id="showFoundProducts" checked>
-                                <label class="form-check-label" for="showFoundProducts">Found Products</label>
-                            </div>
-                            <div class="form-check form-check-inline">
-                                <input class="form-check-input" type="checkbox" id="showNotFoundProducts" checked>
-                                <label class="form-check-label" for="showNotFoundProducts">Not Found</label>
-                            </div>
-                        </div>
-                        <div class="col-md-6 text-md-end">
-                            <button id="toggleAllNotFound" class="btn btn-sm btn-outline-secondary">Show Only Not Found</button>
-                        </div>
+                <div class="modal-body">
+                    <p>Select what to include in the export:</p>
+                    
+                    <div class="export-option">
+                        <input type="radio" name="exportOption" id="exportAll" checked>
+                        <label for="exportAll">All Products</label>
+                    </div>
+                    
+                    <div class="export-option">
+                        <input type="radio" name="exportOption" id="exportFound">
+                        <label for="exportFound">Found Products Only</label>
+                    </div>
+                    
+                    <div class="export-option">
+                        <input type="radio" name="exportOption" id="exportNotFound">
+                        <label for="exportNotFound">Not Found Products Only</label>
+                    </div>
+                    
+                    <div class="export-option">
+                        <input type="radio" name="exportOption" id="exportAvailable">
+                        <label for="exportAvailable">Available Products Only</label>
+                    </div>
+                    
+                    <div class="export-option">
+                        <input type="radio" name="exportOption" id="exportUnavailable">
+                        <label for="exportUnavailable">Unavailable Products Only</label>
+                    </div>
+                    
+                    <div class="export-option">
+                        <input type="radio" name="exportOption" id="exportCurrentView">
+                        <label for="exportCurrentView">Current View (As Filtered)</label>
                     </div>
                 </div>
-                
-                <div id="resultsContainer" class="row"></div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-success" id="confirmExport">Export</button>
+                </div>
             </div>
         </div>
     </div>
@@ -523,11 +693,13 @@
             // Variables
             const searchButton = document.getElementById('searchButton');
             const exportButton = document.getElementById('exportButton');
+            const confirmExportButton = document.getElementById('confirmExport');
             const loadingSpinner = document.getElementById('loadingSpinner');
             const loadingMessage = document.getElementById('loadingMessage');
             const progressContainer = document.getElementById('progressContainer');
             const progressBar = document.getElementById('progressBar');
             const progressStatus = document.getElementById('progressStatus');
+            const currentItem = document.getElementById('currentItem');
             const resultsContainer = document.getElementById('resultsContainer');
             const searchInfo = document.getElementById('searchInfo');
             const resultStats = document.getElementById('resultStats');
@@ -538,9 +710,18 @@
             const parsedTermsList = document.getElementById('parsedTermsList');
             const hideTermsToggle = document.getElementById('hideTermsToggle');
             const filterControls = document.getElementById('filterControls');
-            const showFoundProducts = document.getElementById('showFoundProducts');
-            const showNotFoundProducts = document.getElementById('showNotFoundProducts');
-            const toggleAllNotFound = document.getElementById('toggleAllNotFound');
+            const duplicateMessage = document.getElementById('duplicateMessage');
+            const duplicateText = document.getElementById('duplicateText');
+            
+            // Filter options
+            const filterAll = document.getElementById('filterAll');
+            const filterFound = document.getElementById('filterFound');
+            const filterNotFound = document.getElementById('filterNotFound');
+            const filterAvailable = document.getElementById('filterAvailable');
+            const filterUnavailable = document.getElementById('filterUnavailable');
+
+            // Export modal
+            const exportModal = new bootstrap.Modal(document.getElementById('exportModal'));
 
             // Store results for export
             let allSearchResults = [];
@@ -552,10 +733,31 @@
             let isProcessingLargeRequest = false;
             let streamingResponse = null;
             let abortController = null;
+            let duplicateCount = 0;
+            let containsEaCodes = false;
 
             // Set up event listeners
             searchButton.addEventListener('click', searchProducts);
-            exportButton.addEventListener('click', exportToExcel);
+            exportButton.addEventListener('click', function() {
+                // Show export modal instead of directly exporting
+                exportModal.show();
+            });
+            
+            confirmExportButton.addEventListener('click', function() {
+                // Hide the modal
+                exportModal.hide();
+                
+                // Determine which export option was selected
+                let option = 'all';
+                if (document.getElementById('exportFound').checked) option = 'found';
+                else if (document.getElementById('exportNotFound').checked) option = 'notFound';
+                else if (document.getElementById('exportAvailable').checked) option = 'available';
+                else if (document.getElementById('exportUnavailable').checked) option = 'unavailable';
+                else if (document.getElementById('exportCurrentView').checked) option = 'currentView';
+                
+                // Export with the selected option
+                exportToExcel(option);
+            });
             
             // Toggle for parsed terms section
             hideTermsToggle.addEventListener('click', function() {
@@ -570,20 +772,9 @@
             });
             
             // Filter event listeners
-            showFoundProducts.addEventListener('change', filterResults);
-            showNotFoundProducts.addEventListener('change', filterResults);
-            toggleAllNotFound.addEventListener('click', function() {
-                if (showNotFoundProducts.checked && !showFoundProducts.checked) {
-                    // If only showing not found, show all
-                    showFoundProducts.checked = true;
-                    showNotFoundProducts.checked = true;
-                } else {
-                    // Otherwise, show only not found
-                    showFoundProducts.checked = false;
-                    showNotFoundProducts.checked = true;
-                }
-                filterResults();
-            });
+            [filterAll, filterFound, filterNotFound, filterAvailable, filterUnavailable].forEach(
+                filter => filter.addEventListener('change', filterResults)
+            );
 
             // Add event listener to check region info when session ID changes
             document.getElementById('sessionId').addEventListener('blur', checkRegionInfo);
@@ -601,40 +792,47 @@
                 }
             });
 
-            // Function to filter results based on checkboxes
+            // Function to filter results based on radio buttons
             function filterResults() {
-                const showFound = showFoundProducts.checked;
-                const showNotFound = showNotFoundProducts.checked;
+                let showCondition;
                 
-                // Update the toggle button text
-                if (!showFound && showNotFound) {
-                    toggleAllNotFound.textContent = "Show All Products";
-                } else {
-                    toggleAllNotFound.textContent = "Show Only Not Found";
+                if (filterAll.checked) {
+                    // Show all products
+                    showCondition = () => true;
+                } else if (filterFound.checked) {
+                    // Show only found products
+                    showCondition = product => product.classList.contains('found-product');
+                } else if (filterNotFound.checked) {
+                    // Show only not found products
+                    showCondition = product => product.classList.contains('not-found-card');
+                } else if (filterAvailable.checked) {
+                    // Show only available products
+                    showCondition = product => product.classList.contains('found-product') && 
+                                              product.querySelector('.badge-available');
+                } else if (filterUnavailable.checked) {
+                    // Show only unavailable products
+                    showCondition = product => product.classList.contains('found-product') && 
+                                              product.querySelector('.badge-unavailable');
                 }
                 
-                // Get all product cards
-                const foundCards = document.querySelectorAll('.product-card:not(.not-found-card)');
-                const notFoundCards = document.querySelectorAll('.product-card.not-found-card');
+                // Apply filter to all product cards
+                const allProductCards = document.querySelectorAll('.product-card');
+                let visibleCount = 0;
                 
-                // Apply filters
-                foundCards.forEach(card => {
+                allProductCards.forEach(card => {
                     const parentCol = card.closest('.col-md-4');
                     if (parentCol) {
-                        parentCol.style.display = showFound ? 'block' : 'none';
+                        if (showCondition(card)) {
+                            parentCol.style.display = 'block';
+                            visibleCount++;
+                        } else {
+                            parentCol.style.display = 'none';
+                        }
                     }
                 });
                 
-                notFoundCards.forEach(card => {
-                    const parentCol = card.closest('.col-md-4');
-                    if (parentCol) {
-                        parentCol.style.display = showNotFound ? 'block' : 'none';
-                    }
-                });
-                
-                // Update results count
-                const visibleCards = document.querySelectorAll('.col-md-4[style="display: block;"]').length;
-                resultStats.textContent = `Found ${totalFoundProducts} products, ${notFoundProducts} not found, showing ${visibleCards} of ${displayedProducts} total`;
+                // Update results stats
+                resultStats.textContent = `Found ${totalFoundProducts} products, ${notFoundProducts} not found, showing ${visibleCount} of ${displayedProducts} total`;
             }
 
             // Function to check region info when session ID is entered
@@ -772,7 +970,7 @@
             }
 
             // Function to update progress bar
-            function updateProgress(percent, statusText) {
+            function updateProgress(percent, statusText, currentItemText = null) {
                 if (progressContainer.style.display === 'none') {
                     progressContainer.style.display = 'block';
                 }
@@ -781,6 +979,12 @@
                 progressBar.setAttribute('aria-valuenow', percent);
                 progressBar.textContent = `${Math.round(percent)}%`;
                 progressStatus.textContent = statusText;
+                
+                // Update current item if provided
+                if (currentItemText) {
+                    currentItem.style.display = 'block';
+                    currentItem.textContent = `Processing: ${currentItemText}`;
+                }
             }
 
             // Function to process and display search results
@@ -815,6 +1019,21 @@
                             Postal Code: ${postalCode}
                         </div>
                     `;
+                }
+
+                // Display duplicate message if there are duplicates and it's not EA codes
+                if (data.duplicate_count && data.duplicate_count > 0) {
+                    duplicateCount = data.duplicate_count;
+                    containsEaCodes = data.contains_ea_codes || false;
+                    
+                    if (duplicateCount > 0 && !containsEaCodes) {
+                        duplicateMessage.style.display = 'block';
+                        duplicateText.textContent = `Found and removed ${duplicateCount} duplicate search terms.`;
+                    } else {
+                        duplicateMessage.style.display = 'none';
+                    }
+                } else {
+                    duplicateMessage.style.display = 'none';
                 }
 
                 // Display parsed terms if available
@@ -855,17 +1074,22 @@
                     notFoundProducts = notFoundProds.length;
                     displayedProducts = data.products.length;
                     
-                    // Show filter controls if we have both found and not found
-                    if (foundProducts.length > 0 && notFoundProds.length > 0) {
+                    // Always show filter controls if we have products
+                    if (data.products.length > 0) {
                         filterControls.style.display = 'block';
                     }
                     
                     // For streaming response, update progress based on processed products
                     if (isProcessingLargeRequest && data.total_processed && data.total_terms) {
                         const percentComplete = (data.total_processed / data.total_terms) * 100;
+                        
+                        // Get the current term being processed
+                        const currentTerm = data.products[data.products.length - 1]?.searchTerm || '';
+                        
                         updateProgress(
                             percentComplete,
-                            `Processed ${data.total_processed} of ${data.total_terms} terms (${totalFoundProducts} products found, ${notFoundProducts} not found)`
+                            `Processed ${data.total_processed} of ${data.total_terms} terms (${totalFoundProducts} products found, ${notFoundProducts} not found)`,
+                            currentTerm
                         );
                     }
                 }
@@ -886,10 +1110,9 @@
                 // Display products
                 displayResults(allSearchResults, resultsContainer);
                 
-                // Apply any active filters
-                if (filterControls.style.display !== 'none') {
-                    filterResults();
-                }
+                // Apply default filter (show all)
+                filterAll.checked = true;
+                filterResults();
             }
 
             // Abort any in-progress request
@@ -940,12 +1163,14 @@
                 // Show loading spinner
                 loadingSpinner.style.display = 'block';
                 progressContainer.style.display = 'none';
+                currentItem.style.display = 'none';
                 loadingMessage.textContent = 'Searching products...';
                 resultsContainer.innerHTML = '';
                 searchInfo.style.display = 'none';
                 exportButton.style.display = 'none';
                 parsedTermsSection.style.display = 'none';
                 filterControls.style.display = 'none';
+                duplicateMessage.style.display = 'none';
 
                 // Reset results
                 allSearchResults = [];
@@ -953,6 +1178,8 @@
                 displayedProducts = 0;
                 notFoundProducts = 0;
                 parsedTerms = [];
+                duplicateCount = 0;
+                containsEaCodes = false;
 
                 // Prepare request payload
                 const payload = {
@@ -1174,10 +1401,11 @@
                     unitPriceDisplay = `<div class="small text-muted">$${formattedUnitPrice} / ${product.unitLabel}</div>`;
                 }
 
-                // Format availability badge
+                // Format availability badge with classes for filtering
+                const availabilityClass = product.available ? 'badge-available' : 'badge-unavailable';
                 const availabilityBadge = product.available
-                    ? '<span class="badge bg-success">Available</span>'
-                    : '<span class="badge bg-danger">Unavailable</span>';
+                    ? `<span class="badge bg-success ${availabilityClass}">Available</span>`
+                    : `<span class="badge bg-danger ${availabilityClass}">Unavailable</span>`;
 
                 // Format offers and Scene+ offers
                 let offersDisplay = '';
@@ -1201,7 +1429,7 @@
                     : '';
 
                 productCard.innerHTML = `
-                    <div class="card product-card">
+                    <div class="card product-card found-product">
                         <img src="${product.imageUrl || 'https://via.placeholder.com/200x200?text=No+Image'}" 
                              class="card-img-top product-img" alt="${product.name || 'Product Image'}">
                         <div class="card-body">
@@ -1257,17 +1485,65 @@
                 return notFoundCard;
             }
 
-            function exportToExcel() {
+            function exportToExcel(option = 'all') {
                 if (!allSearchResults || allSearchResults.length === 0) {
                     alert('No results to export');
                     return;
+                }
+
+                // Filter products based on the selected option
+                let productsToExport;
+                
+                switch (option) {
+                    case 'found':
+                        productsToExport = allSearchResults.filter(p => p.found === true);
+                        break;
+                    case 'notFound':
+                        productsToExport = allSearchResults.filter(p => p.found === false);
+                        break;
+                    case 'available':
+                        productsToExport = allSearchResults.filter(p => p.found === true && p.available === true);
+                        break;
+                    case 'unavailable':
+                        productsToExport = allSearchResults.filter(p => p.found === true && p.available === false);
+                        break;
+                    case 'currentView':
+                        // Get currently visible products based on the applied filter
+                        const visibleIds = Array.from(document.querySelectorAll('.col-md-4[style="display: block;"]'))
+                            .map(col => {
+                                const productCard = col.querySelector('.product-card');
+                                if (productCard.classList.contains('not-found-card')) {
+                                    // Not found products - get searchTerm
+                                    const searchTerm = col.id.replace('not-found-', '');
+                                    return { type: 'notFound', term: searchTerm };
+                                } else {
+                                    // Found products - get ID
+                                    const id = col.id.replace('product-', '');
+                                    return { type: 'found', id: id };
+                                }
+                            });
+                            
+                        productsToExport = allSearchResults.filter(product => {
+                            if (product.found === false) {
+                                return visibleIds.some(item => 
+                                    item.type === 'notFound' && item.term === product.searchTerm);
+                            } else {
+                                const productId = product.retailerProductId || product.productId || product.searchTerm;
+                                return visibleIds.some(item => 
+                                    item.type === 'found' && item.id === productId);
+                            }
+                        });
+                        break;
+                    default:
+                        // 'all' - export everything
+                        productsToExport = allSearchResults;
                 }
 
                 // Create a new workbook
                 const wb = XLSX.utils.book_new();
 
                 // Prepare data for export - create a flat array of data
-                const exportData = allSearchResults.map(product => {
+                const exportData = productsToExport.map(product => {
                     // Format offers for Excel
                     let sceneOffers = '';
                     let otherOffers = '';
@@ -1373,9 +1649,19 @@
                 // Get region info for filename
                 const regionName = currentRegionInfo?.nickname || 'Unknown';
                 const postalCode = currentRegionInfo?.postalCode || '';
+                
+                // Add export type to filename
+                let exportTypeLabel = '';
+                switch (option) {
+                    case 'found': exportTypeLabel = '-Found'; break;
+                    case 'notFound': exportTypeLabel = '-NotFound'; break;
+                    case 'available': exportTypeLabel = '-Available'; break;
+                    case 'unavailable': exportTypeLabel = '-Unavailable'; break;
+                    case 'currentView': exportTypeLabel = '-Filtered'; break;
+                }
 
                 // Create a descriptive filename with region details
-                const filename = `Voila-${regionName}-${postalCode}-Products-${timestamp}.xlsx`;
+                const filename = `Voila-${regionName}-${postalCode}${exportTypeLabel}-Products-${timestamp}.xlsx`;
 
                 // Generate Excel file
                 XLSX.writeFile(wb, filename);
