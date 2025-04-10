@@ -1,6 +1,5 @@
 # gunicorn_config.py
 # Save this file in the same directory as your main.py
-
 import multiprocessing
 
 # Server socket settings
@@ -8,7 +7,10 @@ bind = "0.0.0.0:5000"
 
 # Worker settings - adjust based on your server's resources
 workers = multiprocessing.cpu_count() * 2 + 1
-worker_class = "gevent"  # Use gevent for async handling
+
+# Changed from "gevent" to "sync" to avoid monkey-patching issues
+worker_class = "sync"  
+
 threads = 4
 
 # Worker timeout settings - critical for preventing SIGKILL
@@ -38,6 +40,3 @@ proc_name = "voila_price_checker"
 
 # Preload application for better performance
 preload_app = True
-
-# Example startup command:
-# gunicorn -c gunicorn_config.py main:app
