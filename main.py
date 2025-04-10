@@ -83,84 +83,123 @@ def fetch_product():
         # Extract region name (use nickname or default to ID)
         region_name = region_info.get("nickname") or "Unknown Region"
         
-        # Fetch data from Voila API
-        raw_data = fetch_product_data(search_term, session_id)
-
-        # Process the response
+        # Parse search terms (split by commas or new lines)
+        individual_terms = search_term.split(',')
+        
+        # Handle individual search terms
         products = []
         total_found = 0
-
-        if raw_data and "entities" in raw_data and "product" in raw_data["entities"]:
-            product_entities = raw_data["entities"]["product"]
-            total_found = len(product_entities)
-
-            # Apply limit if needed
-            if limit != 'all':
-                try:
-                    max_items = int(limit) if isinstance(limit, str) else limit
-                    product_keys = list(product_entities.keys())[:max_items]
-                except (ValueError, TypeError):
-                    product_keys = product_entities.keys()
+        not_found_terms = []  # Track terms that weren't found
+        
+        for term in individual_terms:
+            term = term.strip()
+            if not term:
+                continue
+                
+            # Fetch data from Voila API
+            raw_data = fetch_product_data(term, session_id)
+            
+            term_products = []
+            
+            if raw_data and "entities" in raw_data and "product" in raw_data["entities"]:
+                product_entities = raw_data["entities"]["product"]
+                
+                if product_entities:  # Products found for this term
+                    total_found += len(product_entities)
+                    
+                    # Apply limit if needed
+                    if limit != 'all':
+                        try:
+                            max_items = int(limit) if isinstance(limit, str) else limit
+                            product_keys = list(product_entities.keys())[:max_items]
+                        except (ValueError, TypeError):
+                            product_keys = product_entities.keys()
+                    else:
+                        product_keys = product_entities.keys()
+                    
+                    # Extract product info for each item
+                    for product_id in product_keys:
+                        product = product_entities[product_id]
+                        
+                        # Extract product details
+                        product_info = {
+                            "found": True,
+                            "searchTerm": term,  # Add search term to each product
+                            "productId": product.get("productId"),
+                            "retailerProductId": product.get("retailerProductId"),
+                            "name": product.get("name"),
+                            "brand": product.get("brand"),
+                            "available": product.get("available", False),
+                            "category": " > ".join(product.get("categoryPath", [])) if "categoryPath" in product else "",
+                            "imageUrl": product.get("image", {}).get("src"),
+                            "currency": product.get("price", {}).get("current", {}).get("currency", "CAD")
+                        }
+                        
+                        # Handle price information
+                        if "price" in product:
+                            price_info = product["price"]
+                            
+                            # Current price
+                            if "current" in price_info:
+                                product_info["currentPrice"] = price_info["current"].get("amount")
+                                
+                            # Original price
+                            if "original" in price_info:
+                                product_info["originalPrice"] = price_info["original"].get("amount")
+                                
+                                # Calculate discount percentage if both prices are available
+                                if (product_info["currentPrice"] is not None and 
+                                    product_info["originalPrice"] is not None):
+                                    try:
+                                        # Convert to float before calculation
+                                        current_price = float(product_info["currentPrice"])
+                                        original_price = float(product_info["originalPrice"])
+                                        
+                                        if original_price > current_price:
+                                            discount = ((original_price - current_price) / original_price * 100)
+                                            product_info["discountPercentage"] = round(discount)
+                                    except (ValueError, TypeError):
+                                        # Handle cases where conversion to float fails
+                                        pass
+                                        
+                            # Unit price
+                            if "unit" in price_info:
+                                product_info["unitPrice"] = price_info["unit"].get("current", {}).get("amount")
+                                product_info["unitLabel"] = price_info["unit"].get("label")
+                                
+                        # Extract offers
+                        if "offers" in product:
+                            product_info["offers"] = product.get("offers", [])
+                            
+                        if "offer" in product:
+                            product_info["primaryOffer"] = product.get("offer")
+                            
+                        term_products.append(product_info)
+                else:
+                    # No products found for this term
+                    not_found_terms.append(term)
             else:
-                product_keys = product_entities.keys()
-
-            # Extract product info for each item
-            for product_id in product_keys:
-                product = product_entities[product_id]
-
-                # Extract product details
-                product_info = {
-                    "found": True,
-                    "productId": product.get("productId"),
-                    "retailerProductId": product.get("retailerProductId"),
-                    "name": product.get("name"),
-                    "brand": product.get("brand"),
-                    "available": product.get("available", False),
-                    "category": " > ".join(product.get("categoryPath", [])) if "categoryPath" in product else "",
-                    "imageUrl": product.get("image", {}).get("src"),
-                    "currency": product.get("price", {}).get("current", {}).get("currency", "CAD")
-                }
-
-                # Handle price information
-                if "price" in product:
-                    price_info = product["price"]
-
-                    # Current price
-                    if "current" in price_info:
-                        product_info["currentPrice"] = price_info["current"].get("amount")
-
-                    # Original price
-                    if "original" in price_info:
-                        product_info["originalPrice"] = price_info["original"].get("amount")
-
-                        # Calculate discount percentage if both prices are available
-                        if (product_info["currentPrice"] is not None and 
-                            product_info["originalPrice"] is not None):
-                            try:
-                                # Convert to float before calculation
-                                current_price = float(product_info["currentPrice"])
-                                original_price = float(product_info["originalPrice"])
-
-                                if original_price > current_price:
-                                    discount = ((original_price - current_price) / original_price * 100)
-                                    product_info["discountPercentage"] = round(discount)
-                            except (ValueError, TypeError):
-                                # Handle cases where conversion to float fails
-                                pass
-
-                    # Unit price
-                    if "unit" in price_info:
-                        product_info["unitPrice"] = price_info["unit"].get("current", {}).get("amount")
-                        product_info["unitLabel"] = price_info["unit"].get("label")
-
-                # Extract offers
-                if "offers" in product:
-                    product_info["offers"] = product.get("offers", [])
-
-                if "offer" in product:
-                    product_info["primaryOffer"] = product.get("offer")
-
-                products.append(product_info)
+                # API error or no results
+                not_found_terms.append(term)
+                
+            # Add this term's products to the main list
+            products.extend(term_products)
+            
+        # Add not found entries to products list
+        for term in not_found_terms:
+            not_found_entry = {
+                "found": False,
+                "searchTerm": term,
+                "productId": None,
+                "retailerProductId": None,
+                "name": f"Article Not Found: {term}",
+                "brand": None,
+                "available": False,
+                "category": "",
+                "imageUrl": None,
+                "notFoundMessage": f"The article \"{term}\" was not found. It may not be published yet or could be a typo."
+            }
+            products.append(not_found_entry)
 
         # Return the processed data with region information
         response = {
@@ -168,6 +207,7 @@ def fetch_product():
             "region_info": region_info,  # Include detailed region info
             "search_term": search_term,
             "total_found": total_found,
+            "not_found_terms": not_found_terms,
             "products": products
         }
 
@@ -646,6 +686,7 @@ def process_product(product):
 
     # Extract basic product details
     product_info = {
+        "found": True,  # Flag to indicate this is a found product
         "productId": product.get("productId"),
         "retailerProductId": product.get("retailerProductId"),
         "name": product.get("name"),
