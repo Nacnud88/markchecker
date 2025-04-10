@@ -131,13 +131,18 @@ def parse_search_terms(search_input):
     Parse search input into individual search terms.
     Handles comma-separated, newline-separated, and space-separated inputs.
     Also handles EA-code pattern recognition.
+    Returns tuple of (unique_terms, duplicate_count, contains_ea_codes)
     """
+    # Initialize variables to track duplicates and EA codes
+    contains_ea_codes = False
+    
     # First check for continuous EA codes and separate them
     if 'EA' in search_input:
         # This regex matches patterns of digits followed by 'EA'
         continuous_ea_pattern = r'(\d+EA)'
         # Replace with the same but with a space after
         search_input = re.sub(continuous_ea_pattern, r'\1 ', search_input)
+        contains_ea_codes = True
 
     # Now try comma or newline separation
     terms = []
@@ -150,6 +155,7 @@ def parse_search_terms(search_input):
         if ea_codes:
             # If we found EA codes, use them
             terms = ea_codes
+            contains_ea_codes = True
         else:
             # Otherwise, try splitting by spaces if the input is particularly long
             if len(search_input) > 50 and ' ' in search_input:
@@ -161,6 +167,9 @@ def parse_search_terms(search_input):
     # Clean up terms
     terms = [term.strip() for term in terms if term.strip()]
     
+    # Count total terms before deduplication
+    total_terms = len(terms)
+    
     # Remove duplicates while preserving order
     seen = set()
     unique_terms = []
@@ -169,8 +178,11 @@ def parse_search_terms(search_input):
             seen.add(term)
             unique_terms.append(term)
     
-    return unique_terms
-
+    # Calculate how many duplicates were removed
+    duplicate_count = total_terms - len(unique_terms)
+    
+    return unique_terms, duplicate_count, contains_ea_codes
+    
 def fetch_product_data(product_id, session_id):
     """Fetch product data from Voila.ca API using the provided session ID"""
     try:
@@ -467,10 +479,10 @@ def fetch_product():
         # Extract region name (use nickname or default to ID)
         region_name = region_info.get("nickname") or "Unknown Region"
         
-        # Parse search terms using the enhanced parser
-        individual_terms = parse_search_terms(search_term)
+        # Parse search terms using the enhanced parser that returns duplicate info
+        individual_terms, duplicate_count, contains_ea_codes = parse_search_terms(search_term)
         
-        logging.info(f"Processing {len(individual_terms)} individual search terms")
+        logging.info(f"Processing {len(individual_terms)} individual search terms (removed {duplicate_count} duplicates)")
         
         # For large sets of terms, use batched processing
         if len(individual_terms) > 30:
@@ -483,11 +495,13 @@ def fetch_product():
                 total_batches = (len(individual_terms) + BATCH_SIZE - 1) // BATCH_SIZE
                 
                 # Start the JSON response
-                yield '{"region_name": %s, "region_info": %s, "search_term": %s, "parsed_terms": %s, "status": "processing", "total_terms": %d, "total_batches": %d, "products": [' % (
+                yield '{"region_name": %s, "region_info": %s, "search_term": %s, "parsed_terms": %s, "duplicate_count": %d, "contains_ea_codes": %s, "status": "processing", "total_terms": %d, "total_batches": %d, "products": [' % (
                     json.dumps(region_name),
                     json.dumps(region_info),
                     json.dumps(search_term),
                     json.dumps(individual_terms),
+                    duplicate_count,
+                    json.dumps(contains_ea_codes),
                     len(individual_terms),
                     total_batches
                 )
@@ -627,6 +641,8 @@ def fetch_product():
             "region_info": region_info,
             "search_term": search_term,
             "parsed_terms": individual_terms,
+            "duplicate_count": duplicate_count,
+            "contains_ea_codes": contains_ea_codes,
             "total_found": total_found,
             "not_found_terms": not_found_terms,
             "products": products,
