@@ -31,46 +31,86 @@ def index():
 def get_region_info(session_id):
     """Get region ID and details from Voila API using session ID"""
     try:
+        logging.info(f"Fetching region info with session ID length: {len(session_id) if session_id else 0}")
+        
         url = "https://voila.ca/api/cart/v1/carts/active"
         
         headers = {
             "accept": "application/json; charset=utf-8",
-            "client-route-id": "d55f7f13-4217-4320-907e-eadd09051a7c"
+            "client-route-id": "d55f7f13-4217-4320-907e-eadd09051a7c",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
         }
         
         cookies = {
             "global_sid": session_id
         }
         
+        # Make the request with a timeout to prevent hanging
         response = requests.get(url, headers=headers, cookies=cookies, timeout=20)
         
         if response.status_code == 200:
-            data = response.json()
-            region_info = {
-                "regionId": data.get("regionId"),
-                "nickname": None,
-                "displayAddress": None,
-                "postalCode": None
-            }
-            
-            # Extract additional information if available
-            if "defaultCheckoutGroup" in data and "delivery" in data["defaultCheckoutGroup"]:
-                delivery = data["defaultCheckoutGroup"]["delivery"]
-                if "addressDetails" in delivery:
-                    address = delivery["addressDetails"]
-                    region_info["nickname"] = address.get("nickname")
-                    region_info["displayAddress"] = address.get("displayAddress")
-                    region_info["postalCode"] = address.get("postalCode")
-                    
-            return region_info
-        
-        # Return None if there was an error
-        return None
+            try:
+                data = response.json()
+                
+                # Initialize with default values
+                region_info = {
+                    "regionId": None,
+                    "nickname": None,
+                    "displayAddress": None,
+                    "postalCode": None
+                }
+                
+                # Directly access specific keys without recursive processing
+                if "regionId" in data:
+                    region_info["regionId"] = data["regionId"]
+                
+                # Carefully extract nested values to avoid recursion
+                if "defaultCheckoutGroup" in data:
+                    checkout_group = data["defaultCheckoutGroup"]
+                    if isinstance(checkout_group, dict) and "delivery" in checkout_group:
+                        delivery = checkout_group["delivery"]
+                        if isinstance(delivery, dict) and "addressDetails" in delivery:
+                            address = delivery["addressDetails"]
+                            if isinstance(address, dict):
+                                # Extract specific fields only
+                                if "nickname" in address:
+                                    region_info["nickname"] = address["nickname"]
+                                if "displayAddress" in address:
+                                    region_info["displayAddress"] = address["displayAddress"]
+                                if "postalCode" in address:
+                                    region_info["postalCode"] = address["postalCode"]
+                
+                # Ensure we have a region ID
+                if not region_info["regionId"]:
+                    # Look in other possible locations
+                    if "region" in data and isinstance(data["region"], dict) and "id" in data["region"]:
+                        region_info["regionId"] = data["region"]["id"]
+                
+                # Set a default nickname if none was found
+                if not region_info["nickname"] and region_info["regionId"]:
+                    region_info["nickname"] = "Region " + str(region_info["regionId"])
+                
+                return region_info
+            except json.JSONDecodeError:
+                logging.error("Failed to parse JSON response from Voila API")
+                return None
+            except Exception as e:
+                logging.error(f"Error processing response data: {str(e)}")
+                return None
+        else:
+            logging.error(f"Error response from Voila API: {response.status_code}")
+            return None
     
+    except requests.exceptions.Timeout:
+        logging.error("Request to Voila API timed out")
+        return None
+    except requests.exceptions.RequestException as e:
+        logging.error(f"Request error: {str(e)}")
+        return None
     except Exception as e:
         logging.error(f"Error getting region info: {str(e)}")
         return None
-
+        
 def parse_search_terms(search_input):
     """
     Parse search input into individual search terms.
