@@ -244,7 +244,7 @@
         }
 
         .progress {
-            height: 20px;
+            height: 24px;
             border-radius: 10px;
             overflow: hidden;
             background-color: #e9ecef;
@@ -257,7 +257,7 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 0.8rem;
+            font-size: 0.85rem;
             font-weight: 600;
             text-shadow: 0 1px 1px rgba(0, 0, 0, 0.1);
             transition: width 0.3s ease;
@@ -267,18 +267,82 @@
             margin-top: 8px;
             font-size: 0.9rem;
             color: var(--voila-dark-green);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
         
-        .current-item {
+        .progress-details {
+            font-size: 0.8rem;
+            color: var(--voila-gray);
+        }
+        
+        .progress-item-details {
             margin-top: 5px;
             padding: 10px;
             background-color: #f8f9fa;
             border-radius: 5px;
+            border-left: 3px solid var(--voila-cyan);
+        }
+        
+        .progress-item-name {
+            font-weight: 600;
+            color: var(--voila-dark-green);
+            margin-bottom: 2px;
+            white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
-            white-space: nowrap;
+        }
+        
+        .progress-item-info {
+            font-size: 0.8rem;
+            color: var(--voila-gray);
+        }
+        
+        .progress-metrics {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 8px;
+            font-size: 0.85rem;
+        }
+        
+        .progress-metric {
+            text-align: center;
+            background: #fff;
+            padding: 5px 10px;
+            border-radius: 5px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            min-width: 100px;
+        }
+        
+        .progress-metric-value {
+            font-weight: bold;
+            font-size: 1.1rem;
+            color: var(--voila-dark-green);
+        }
+        
+        .progress-metric-label {
+            font-size: 0.75rem;
+            color: var(--voila-gray);
+        }
+
+        /* Duplicate Message */
+        .duplicate-message {
+            background-color: #e9ecef;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-radius: 5px;
+            border-left: 4px solid var(--voila-orange);
+        }
+        
+        .duplicate-list {
+            max-height: 150px;
+            overflow-y: auto;
             font-size: 0.9rem;
-            display: none;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 5px;
+            margin-top: 8px;
         }
 
         /* Form Elements Styles */
@@ -298,6 +362,36 @@
             font-weight: 500;
             color: var(--voila-dark-green);
             margin-bottom: 0.5rem;
+        }
+        
+        /* Search Type Toggle */
+        .search-type-toggle {
+            margin-bottom: 20px;
+        }
+        
+        .search-type-toggle .btn-check:checked + .btn {
+            background-color: var(--voila-dark-green);
+            color: white;
+            border-color: var(--voila-dark-green);
+        }
+        
+        .search-type-toggle .btn {
+            border-color: var(--voila-dark-green);
+            color: var(--voila-dark-green);
+            font-weight: 500;
+        }
+        
+        .search-type-toggle .btn:hover {
+            background-color: rgba(0, 72, 59, 0.1);
+        }
+        
+        .search-type-toggle .btn i {
+            margin-right: 8px;
+        }
+        
+        .search-placeholder {
+            font-style: italic;
+            color: #adb5bd;
         }
 
         /* Button Styles */
@@ -427,14 +521,6 @@
             cursor: pointer;
             margin-bottom: 0;
         }
-        
-        .duplicate-message {
-            background-color: #e9ecef;
-            padding: 10px 15px;
-            margin-bottom: 15px;
-            border-radius: 5px;
-            border-left: 4px solid var(--voila-orange);
-        }
 
         /* Mobile Responsiveness */
         @media (max-width: 767.98px) {
@@ -458,6 +544,15 @@
 
             .export-btn {
                 align-self: flex-start;
+            }
+            
+            .progress-metrics {
+                flex-direction: column;
+                gap: 8px;
+            }
+            
+            .progress-metric {
+                width: 100%;
             }
         }
     </style>
@@ -511,22 +606,47 @@
                     <div id="duplicateMessage" class="duplicate-message" style="display: none;">
                         <i class="fas fa-info-circle me-2"></i>
                         <span id="duplicateText"></span>
+                        <div id="duplicateList" class="duplicate-list" style="display: none;"></div>
+                        <button id="toggleDuplicateList" class="btn btn-sm btn-outline-secondary mt-2" style="display: none;">Show Duplicates</button>
+                    </div>
+                    
+                    <!-- Search Type Toggle -->
+                    <div class="search-type-toggle mb-4">
+                        <div class="form-label mb-2">Search Type:</div>
+                        <div class="btn-group w-100" role="group" aria-label="Search type">
+                            <input type="radio" class="btn-check" name="searchType" id="articleSearch" value="article" autocomplete="off" checked>
+                            <label class="btn btn-outline-primary" for="articleSearch">
+                                <i class="fas fa-barcode"></i>Article Search
+                                <div class="search-placeholder small">Search for specific article codes (e.g. 123456EA)</div>
+                            </label>
+
+                            <input type="radio" class="btn-check" name="searchType" id="genericSearch" value="generic" autocomplete="off">
+                            <label class="btn btn-outline-primary" for="genericSearch">
+                                <i class="fas fa-search"></i>Generic Search
+                                <div class="search-placeholder small">Search for general terms (e.g. Water, Coffee)</div>
+                            </label>
+                        </div>
                     </div>
 
                     <!-- Search Form -->
                     <div class="mb-3">
-                        <label for="searchTerms" class="form-label">Search Terms (paste product codes in any format):</label>
-                        <textarea class="form-control" id="searchTerms" rows="6" placeholder="Paste product codes or search terms here (any format will work)"></textarea>
+                        <label for="searchTerms" class="form-label">
+                            <span id="searchTermsLabel">Article Codes:</span>
+                        </label>
+                        <textarea class="form-control" id="searchTerms" rows="6" placeholder="Paste article codes in any format (comma-separated, one per line, etc.)"></textarea>
                     </div>
-                    <div class="mb-3">
-                        <label for="resultLimit" class="form-label">Result Limit per Search Term:</label>
+                    
+                    <!-- Generic Search Options (Initially Hidden) -->
+                    <div id="genericSearchOptions" class="mb-3" style="display: none;">
+                        <label for="resultLimit" class="form-label">Results per Search Term:</label>
                         <select class="form-select" id="resultLimit">
-                            <option value="1" selected>1 result per term (fastest)</option>
                             <option value="5">5 results per term</option>
-                            <option value="10">10 results per term</option>
-                            <option value="all">All results (slowest)</option>
+                            <option value="10" selected>10 results per term</option>
+                            <option value="20">20 results per term</option>
+                            <option value="50">50 results per term (maximum)</option>
                         </select>
                     </div>
+                    
                     <button id="searchButton" class="btn btn-primary w-100 mb-3">Search Products</button>
                     <button id="exportButton" class="btn btn-success w-100" style="display: none;">Export to Excel</button>
                 </div>
@@ -538,13 +658,39 @@
                     </div>
                     <p class="mt-2" id="loadingMessage">Searching products...</p>
                     
-                    <!-- Progress Bar -->
+                    <!-- Enhanced Progress Bar -->
                     <div class="progress-container" id="progressContainer">
                         <div class="progress">
                             <div class="progress-bar" id="progressBar" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0%</div>
                         </div>
-                        <div class="progress-status" id="progressStatus">Initializing search...</div>
-                        <div class="current-item" id="currentItem">Processing: </div>
+                        <div class="progress-status" id="progressStatus">
+                            <span id="progressStatusText">Initializing search...</span>
+                            <span id="progressTimeRemaining"></span>
+                        </div>
+                        
+                        <div class="progress-metrics mt-3">
+                            <div class="progress-metric">
+                                <div class="progress-metric-value" id="progressProcessed">0</div>
+                                <div class="progress-metric-label">Processed</div>
+                            </div>
+                            <div class="progress-metric">
+                                <div class="progress-metric-value" id="progressTotal">0</div>
+                                <div class="progress-metric-label">Total Items</div>
+                            </div>
+                            <div class="progress-metric">
+                                <div class="progress-metric-value" id="progressFound">0</div>
+                                <div class="progress-metric-label">Found</div>
+                            </div>
+                            <div class="progress-metric">
+                                <div class="progress-metric-value" id="progressNotFound">0</div>
+                                <div class="progress-metric-label">Not Found</div>
+                            </div>
+                        </div>
+                        
+                        <div class="progress-item-details" id="currentItemDetails" style="display: none;">
+                            <div class="progress-item-name" id="currentItemName">Processing: </div>
+                            <div class="progress-item-info" id="currentItemInfo"></div>
+                        </div>
                     </div>
                 </div>
 
@@ -564,7 +710,7 @@
                             <div id="parsedTermsList"></div>
                         </div>
                         
-                        <!-- Enhanced Filter Controls -->
+                        <!-- Filter Controls -->
                         <div id="filterControls" class="filter-controls" style="display: none;">
                             <div class="row">
                                 <div class="col-md-12 mb-2">
@@ -598,11 +744,51 @@
             <div class="tab-pane fade" id="instructions-tab-pane" role="tabpanel" aria-labelledby="instructions-tab" tabindex="0">
                 <div class="instructions">
                     <h4>How to Use the Voila Price Checker</h4>
-                    <p>This tool allows you to search for multiple products on Voila.ca using your personal session ID.</p>
-                    <ol>
-                        <li>Enter your Voila.ca session ID in the field provided</li>
-                        <li>Enter search terms or product IDs to find products (separate multiple terms with commas, new lines, or spaces)</li>
-                    </ol>
+                    <p>This tool allows you to search for products on Voila.ca using your personal session ID in two different ways:</p>
+                    
+                    <div class="card mb-4">
+                        <div class="card-header bg-primary text-white">
+                            <h5 class="mb-0"><i class="fas fa-barcode me-2"></i>Article Search</h5>
+                        </div>
+                        <div class="card-body">
+                            <p>Use this mode when you have specific article codes or product IDs to look up.</p>
+                            <ol>
+                                <li>Enter your Voila session ID</li>
+                                <li>Select "Article Search" mode</li>
+                                <li>Paste a list of article codes in any format (comma-separated, one per line, etc.)</li>
+                                <li>Click "Search Products"</li>
+                            </ol>
+                            <div class="alert alert-info">
+                                <strong>Article Code Formats:</strong> The tool automatically detects and parses article codes in various formats:
+                                <ul>
+                                    <li>Comma-separated: <code>123456EA, 789012EA</code></li>
+                                    <li>One code per line (as copied from Excel)</li>
+                                    <li>Space-separated: <code>123456EA 789012EA</code></li>
+                                    <li>Continuous list: <code>123456EA789012EA</code> will be automatically parsed</li>
+                                </ul>
+                                Duplicate codes will be automatically detected and removed.
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="card mb-4">
+                        <div class="card-header bg-primary text-white">
+                            <h5 class="mb-0"><i class="fas fa-search me-2"></i>Generic Search</h5>
+                        </div>
+                        <div class="card-body">
+                            <p>Use this mode when you want to search for general terms like "Water" or "Coffee".</p>
+                            <ol>
+                                <li>Enter your Voila session ID</li>
+                                <li>Select "Generic Search" mode</li>
+                                <li>Enter a search term</li>
+                                <li>Choose how many results you want per term (up to 50)</li>
+                                <li>Click "Search Products"</li>
+                            </ol>
+                            <div class="alert alert-warning">
+                                Generic searches will return multiple matching products per term, up to the limit you specify.
+                            </div>
+                        </div>
+                    </div>
 
                     <h5 class="mt-3">How to Get Your Session ID:</h5>
                     <ol>
@@ -613,24 +799,13 @@
                         <li>Look for "Cookies" and find the "global_sid" cookie value</li>
                         <li>Copy the entire value and paste it in the Session ID field</li>
                     </ol>
-
-                    <div class="alert alert-info">
-                        <strong>Product Codes:</strong> You can paste product codes in any format:
-                        <ul>
-                            <li>Comma-separated: <code>123456EA, 789012EA</code></li>
-                            <li>One code per line (as copied from Excel)</li>
-                            <li>Space-separated: <code>123456EA 789012EA</code></li>
-                            <li>Even a continuous list like <code>123456EA789012EA</code> will be automatically parsed into individual codes</li>
-                        </ul>
-                        For long lists (100+ codes), the system will process them in batches and show progress updates.
-                    </div>
                     
                     <h5 class="mt-3">Features:</h5>
                     <ul>
-                        <li><strong>Filtering</strong> - Use the filter controls to show only specific types of products (all, found, not found, available, unavailable)</li>
-                        <li><strong>Export to Excel</strong> - You can export your search results to an Excel spreadsheet with various filtering options</li>
-                        <li><strong>Duplicate Detection</strong> - The tool automatically detects and removes duplicate search terms</li>
-                        <li><strong>Large Batch Processing</strong> - For large lists, the tool processes items in batches with progress tracking</li>
+                        <li><strong>Progress Tracking</strong> - For large batches, you'll see detailed progress information</li>
+                        <li><strong>Filtering</strong> - Use the filter controls to show only specific types of products</li>
+                        <li><strong>Export to Excel</strong> - Export your search results with various filtering options</li>
+                        <li><strong>Duplicate Detection</strong> - Automatic detection and removal of duplicate search terms</li>
                     </ul>
                 </div>
             </div>
@@ -698,8 +873,15 @@
             const loadingMessage = document.getElementById('loadingMessage');
             const progressContainer = document.getElementById('progressContainer');
             const progressBar = document.getElementById('progressBar');
-            const progressStatus = document.getElementById('progressStatus');
-            const currentItem = document.getElementById('currentItem');
+            const progressStatusText = document.getElementById('progressStatusText');
+            const progressTimeRemaining = document.getElementById('progressTimeRemaining');
+            const progressProcessed = document.getElementById('progressProcessed');
+            const progressTotal = document.getElementById('progressTotal');
+            const progressFound = document.getElementById('progressFound');
+            const progressNotFound = document.getElementById('progressNotFound');
+            const currentItemDetails = document.getElementById('currentItemDetails');
+            const currentItemName = document.getElementById('currentItemName');
+            const currentItemInfo = document.getElementById('currentItemInfo');
             const resultsContainer = document.getElementById('resultsContainer');
             const searchInfo = document.getElementById('searchInfo');
             const resultStats = document.getElementById('resultStats');
@@ -712,6 +894,15 @@
             const filterControls = document.getElementById('filterControls');
             const duplicateMessage = document.getElementById('duplicateMessage');
             const duplicateText = document.getElementById('duplicateText');
+            const duplicateList = document.getElementById('duplicateList');
+            const toggleDuplicateList = document.getElementById('toggleDuplicateList');
+            const searchTermsLabel = document.getElementById('searchTermsLabel');
+            const searchTerms = document.getElementById('searchTerms');
+            const genericSearchOptions = document.getElementById('genericSearchOptions');
+            
+            // Search type radio buttons
+            const articleSearch = document.getElementById('articleSearch');
+            const genericSearch = document.getElementById('genericSearch');
             
             // Filter options
             const filterAll = document.getElementById('filterAll');
@@ -730,11 +921,15 @@
             let notFoundProducts = 0;
             let currentRegionInfo = null;
             let parsedTerms = [];
+            let duplicatesFound = [];
             let isProcessingLargeRequest = false;
             let streamingResponse = null;
             let abortController = null;
-            let duplicateCount = 0;
-            let containsEaCodes = false;
+            let searchStartTime = null;
+            
+            // Progress tracking for estimated time
+            let progressUpdateTimes = [];
+            let progressUpdateValues = [];
 
             // Set up event listeners
             searchButton.addEventListener('click', searchProducts);
@@ -770,6 +965,35 @@
                     this.textContent = 'Show';
                 }
             });
+            
+            // Toggle for duplicate list
+            toggleDuplicateList.addEventListener('click', function() {
+                if (duplicateList.style.display === 'none') {
+                    duplicateList.style.display = 'block';
+                    this.textContent = 'Hide Duplicates';
+                } else {
+                    duplicateList.style.display = 'none';
+                    this.textContent = 'Show Duplicates';
+                }
+            });
+            
+            // Search type listeners
+            articleSearch.addEventListener('change', updateSearchType);
+            genericSearch.addEventListener('change', updateSearchType);
+            
+            function updateSearchType() {
+                if (articleSearch.checked) {
+                    // Article search mode
+                    searchTermsLabel.textContent = 'Article Codes:';
+                    searchTerms.placeholder = 'Paste article codes in any format (comma-separated, one per line, etc.)';
+                    genericSearchOptions.style.display = 'none';
+                } else {
+                    // Generic search mode
+                    searchTermsLabel.textContent = 'Search Terms:';
+                    searchTerms.placeholder = 'Enter general search terms like "Water" or "Coffee"';
+                    genericSearchOptions.style.display = 'block';
+                }
+            }
             
             // Filter event listeners
             [filterAll, filterFound, filterNotFound, filterAvailable, filterUnavailable].forEach(
@@ -857,7 +1081,8 @@
                     body: JSON.stringify({
                         sessionId: sessionId,
                         searchTerm: 'milk',  // Use a common term just to get region info
-                        limit: 1  // Only need one result
+                        limit: 1,  // Only need one result
+                        searchType: 'article' // Use article search type
                     })
                 })
                 .then(response => {
@@ -939,7 +1164,7 @@
                         loadingSpinner.style.display = 'none';
                         
                         // Update progress bar
-                        updateProgress(100, "Processing complete!");
+                        updateProgress(100, "Processing complete!", null, true);
                         setTimeout(() => {
                             progressContainer.style.display = 'none';
                         }, 2000);
@@ -969,21 +1194,88 @@
                 });
             }
 
+            // Function to calculate estimated time remaining
+            function calculateTimeRemaining(percentComplete) {
+                const now = Date.now();
+                
+                // Add the current progress to our tracking arrays
+                progressUpdateTimes.push(now);
+                progressUpdateValues.push(percentComplete);
+                
+                // Keep only the last 10 updates for calculation
+                if (progressUpdateTimes.length > 10) {
+                    progressUpdateTimes.shift();
+                    progressUpdateValues.shift();
+                }
+                
+                // Need at least 2 points to estimate
+                if (progressUpdateTimes.length < 2) {
+                    return "Calculating...";
+                }
+                
+                // Calculate rate of progress
+                const oldestTime = progressUpdateTimes[0];
+                const oldestValue = progressUpdateValues[0];
+                const timeElapsed = now - oldestTime; // ms
+                const progressMade = percentComplete - oldestValue; // percentage points
+                
+                // Avoid division by zero
+                if (progressMade <= 0) {
+                    return "Calculating...";
+                }
+                
+                // Calculate rate: percentage points per ms
+                const rate = progressMade / timeElapsed;
+                
+                // Calculate remaining time
+                const remainingProgress = 100 - percentComplete;
+                const estimatedTimeRemaining = remainingProgress / rate; // ms
+                
+                // Format nicely
+                if (estimatedTimeRemaining < 60000) {
+                    // Less than a minute
+                    return `~${Math.round(estimatedTimeRemaining / 1000)}s remaining`;
+                } else {
+                    // Minutes and seconds
+                    const minutes = Math.floor(estimatedTimeRemaining / 60000);
+                    const seconds = Math.round((estimatedTimeRemaining % 60000) / 1000);
+                    return `~${minutes}m ${seconds}s remaining`;
+                }
+            }
+
             // Function to update progress bar
-            function updateProgress(percent, statusText, currentItemText = null) {
+            function updateProgress(percent, statusText, currentItem = null, finished = false) {
                 if (progressContainer.style.display === 'none') {
                     progressContainer.style.display = 'block';
                 }
                 
+                // Update progress bar
                 progressBar.style.width = `${percent}%`;
                 progressBar.setAttribute('aria-valuenow', percent);
                 progressBar.textContent = `${Math.round(percent)}%`;
-                progressStatus.textContent = statusText;
+                progressStatusText.textContent = statusText;
+                
+                // Update time remaining if not finished
+                if (!finished) {
+                    progressTimeRemaining.textContent = calculateTimeRemaining(percent);
+                } else {
+                    progressTimeRemaining.textContent = "Complete!";
+                }
                 
                 // Update current item if provided
-                if (currentItemText) {
-                    currentItem.style.display = 'block';
-                    currentItem.textContent = `Processing: ${currentItemText}`;
+                if (currentItem) {
+                    currentItemDetails.style.display = 'block';
+                    currentItemName.textContent = `Processing: ${currentItem.searchTerm || currentItem}`;
+                    
+                    // If this is a product with more details, show them
+                    if (currentItem.name) {
+                        currentItemInfo.style.display = 'block';
+                        currentItemInfo.textContent = currentItem.found ? 
+                            `Found: ${currentItem.name} (${currentItem.available ? 'Available' : 'Unavailable'})` : 
+                            `Not found: ${currentItem.notFoundMessage || 'No details available'}`;
+                    } else {
+                        currentItemInfo.style.display = 'none';
+                    }
                 }
             }
 
@@ -1021,19 +1313,32 @@
                     `;
                 }
 
-                // Display duplicate message if there are duplicates and it's not EA codes
-                if (data.duplicate_count && data.duplicate_count > 0) {
-                    duplicateCount = data.duplicate_count;
-                    containsEaCodes = data.contains_ea_codes || false;
+                // Display duplicate message if there are duplicates in article search mode
+                if (data.duplicate_count > 0 && data.search_type === 'article') {
+                    duplicatesFound = data.duplicates || [];
                     
-                    if (duplicateCount > 0 && !containsEaCodes) {
-                        duplicateMessage.style.display = 'block';
-                        duplicateText.textContent = `Found and removed ${duplicateCount} duplicate search terms.`;
+                    duplicateMessage.style.display = 'block';
+                    duplicateText.textContent = `Found and removed ${data.duplicate_count} duplicate article code${data.duplicate_count > 1 ? 's' : ''}.`;
+                    
+                    // Show the toggle button if we have duplicates
+                    if (duplicatesFound.length > 0) {
+                        toggleDuplicateList.style.display = 'inline-block';
+                        
+                        // Populate the duplicate list
+                        duplicateList.innerHTML = '';
+                        const dupList = document.createElement('ul');
+                        duplicatesFound.forEach(dup => {
+                            const item = document.createElement('li');
+                            item.textContent = dup;
+                            dupList.appendChild(item);
+                        });
+                        duplicateList.appendChild(dupList);
                     } else {
-                        duplicateMessage.style.display = 'none';
+                        toggleDuplicateList.style.display = 'none';
                     }
                 } else {
                     duplicateMessage.style.display = 'none';
+                    toggleDuplicateList.style.display = 'none';
                 }
 
                 // Display parsed terms if available
@@ -1057,8 +1362,8 @@
 
                 // For streaming responses, update progress if available
                 if (data.status === 'processing' && data.total_terms && data.total_batches) {
-                    loadingMessage.textContent = `Processing ${data.total_terms} product codes in ${data.total_batches} batches...`;
-                    // Don't update progress yet, we'll do that as products come in
+                    loadingMessage.textContent = `Processing ${data.total_terms} ${data.search_type === 'article' ? 'article codes' : 'search terms'} in ${data.total_batches} batches...`;
+                    progressTotal.textContent = data.total_terms;
                 }
 
                 // Count found and not found products
@@ -1074,7 +1379,7 @@
                     notFoundProducts = notFoundProds.length;
                     displayedProducts = data.products.length;
                     
-                    // Always show filter controls if we have products
+                    // Show filter controls if we have products
                     if (data.products.length > 0) {
                         filterControls.style.display = 'block';
                     }
@@ -1082,14 +1387,17 @@
                     // For streaming response, update progress based on processed products
                     if (isProcessingLargeRequest && data.total_processed && data.total_terms) {
                         const percentComplete = (data.total_processed / data.total_terms) * 100;
+                        const latestProduct = data.products.length > 0 ? data.products[data.products.length - 1] : null;
                         
-                        // Get the current term being processed
-                        const currentTerm = data.products[data.products.length - 1]?.searchTerm || '';
+                        // Update progress metrics
+                        progressProcessed.textContent = data.total_processed;
+                        progressFound.textContent = totalFoundProducts;
+                        progressNotFound.textContent = notFoundProducts;
                         
                         updateProgress(
                             percentComplete,
-                            `Processed ${data.total_processed} of ${data.total_terms} terms (${totalFoundProducts} products found, ${notFoundProducts} not found)`,
-                            currentTerm
+                            `Processed ${data.total_processed} of ${data.total_terms} terms`,
+                            latestProduct
                         );
                     }
                 }
@@ -1145,6 +1453,7 @@
                 const sessionId = document.getElementById('sessionId').value.trim();
                 const searchTermsInput = document.getElementById('searchTerms').value.trim();
                 const resultLimit = document.getElementById('resultLimit').value;
+                const searchType = articleSearch.checked ? 'article' : 'generic';
 
                 // Validate inputs
                 if (!sessionId) {
@@ -1163,14 +1472,25 @@
                 // Show loading spinner
                 loadingSpinner.style.display = 'block';
                 progressContainer.style.display = 'none';
-                currentItem.style.display = 'none';
-                loadingMessage.textContent = 'Searching products...';
+                currentItemDetails.style.display = 'none';
+                loadingMessage.textContent = searchType === 'article' ? 'Searching for articles...' : 'Performing generic search...';
                 resultsContainer.innerHTML = '';
                 searchInfo.style.display = 'none';
                 exportButton.style.display = 'none';
                 parsedTermsSection.style.display = 'none';
                 filterControls.style.display = 'none';
                 duplicateMessage.style.display = 'none';
+                duplicateList.style.display = 'none';
+                toggleDuplicateList.style.display = 'none';
+
+                // Reset progress tracking
+                searchStartTime = Date.now();
+                progressUpdateTimes = [];
+                progressUpdateValues = [];
+                progressProcessed.textContent = '0';
+                progressTotal.textContent = '0';
+                progressFound.textContent = '0';
+                progressNotFound.textContent = '0';
 
                 // Reset results
                 allSearchResults = [];
@@ -1178,22 +1498,32 @@
                 displayedProducts = 0;
                 notFoundProducts = 0;
                 parsedTerms = [];
-                duplicateCount = 0;
-                containsEaCodes = false;
+                duplicatesFound = [];
 
                 // Prepare request payload
                 const payload = {
                     sessionId: sessionId,
                     searchTerm: searchTermsInput,
-                    limit: resultLimit
+                    limit: resultLimit,
+                    searchType: searchType
                 };
                 
-                // Check if this might be a large request (more than 50 lines or commas)
-                const commaCount = (searchTermsInput.match(/,/g) || []).length;
-                const lineCount = (searchTermsInput.match(/\n/g) || []).length;
-                const eaCodeCount = (searchTermsInput.match(/\d+EA/g) || []).length;
+                // Check if this might be a large request based on search type and input size
+                let isLargeRequest = false;
                 
-                isProcessingLargeRequest = (commaCount + lineCount > 50) || (eaCodeCount > 50) || searchTermsInput.length > 1000;
+                if (searchType === 'article') {
+                    // For article search, check commas, lines, EA codes
+                    const commaCount = (searchTermsInput.match(/,/g) || []).length;
+                    const lineCount = (searchTermsInput.match(/\n/g) || []).length;
+                    const eaCodeCount = (searchTermsInput.match(/\d+EA/g) || []).length;
+                    
+                    isLargeRequest = (commaCount + lineCount > 50) || (eaCodeCount > 50) || searchTermsInput.length > 1000;
+                } else {
+                    // For generic search, not likely to be a large batch request
+                    isLargeRequest = false;
+                }
+                
+                isProcessingLargeRequest = isLargeRequest;
                 
                 if (isProcessingLargeRequest) {
                     // For large requests, use streaming response
