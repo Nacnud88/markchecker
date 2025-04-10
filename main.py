@@ -50,7 +50,11 @@ def get_region_info(session_id):
         
         if response.status_code == 200:
             try:
-                data = response.json()
+                # Get the raw text first instead of using json() method
+                raw_text = response.text
+                
+                # Use a safe approach to extract only the essential fields we need
+                import re
                 
                 # Initialize with default values
                 region_info = {
@@ -60,43 +64,44 @@ def get_region_info(session_id):
                     "postalCode": None
                 }
                 
-                # Directly access specific keys without recursive processing
-                if "regionId" in data:
-                    region_info["regionId"] = data["regionId"]
+                # Use regex to find the key fields directly in the response text
+                region_id_match = re.search(r'"regionId"\s*:\s*"?(\d+)"?', raw_text)
+                if region_id_match:
+                    region_info["regionId"] = region_id_match.group(1)
+                else:
+                    # Alternative match for region ID in other locations
+                    region_id_alt_match = re.search(r'"region"\s*:\s*\{"id"\s*:\s*"?(\d+)"?', raw_text)
+                    if region_id_alt_match:
+                        region_info["regionId"] = region_id_alt_match.group(1)
                 
-                # Carefully extract nested values to avoid recursion
-                if "defaultCheckoutGroup" in data:
-                    checkout_group = data["defaultCheckoutGroup"]
-                    if isinstance(checkout_group, dict) and "delivery" in checkout_group:
-                        delivery = checkout_group["delivery"]
-                        if isinstance(delivery, dict) and "addressDetails" in delivery:
-                            address = delivery["addressDetails"]
-                            if isinstance(address, dict):
-                                # Extract specific fields only
-                                if "nickname" in address:
-                                    region_info["nickname"] = address["nickname"]
-                                if "displayAddress" in address:
-                                    region_info["displayAddress"] = address["displayAddress"]
-                                if "postalCode" in address:
-                                    region_info["postalCode"] = address["postalCode"]
-                
-                # Ensure we have a region ID
-                if not region_info["regionId"]:
-                    # Look in other possible locations
-                    if "region" in data and isinstance(data["region"], dict) and "id" in data["region"]:
-                        region_info["regionId"] = data["region"]["id"]
+                # Try to find other fields with regex
+                nickname_match = re.search(r'"nickname"\s*:\s*"([^"]+)"', raw_text)
+                if nickname_match:
+                    region_info["nickname"] = nickname_match.group(1)
+                    
+                address_match = re.search(r'"displayAddress"\s*:\s*"([^"]+)"', raw_text)
+                if address_match:
+                    region_info["displayAddress"] = address_match.group(1)
+                    
+                postal_match = re.search(r'"postalCode"\s*:\s*"([^"]+)"', raw_text)
+                if postal_match:
+                    region_info["postalCode"] = postal_match.group(1)
                 
                 # Set a default nickname if none was found
                 if not region_info["nickname"] and region_info["regionId"]:
                     region_info["nickname"] = "Region " + str(region_info["regionId"])
                 
                 return region_info
-            except json.JSONDecodeError:
-                logging.error("Failed to parse JSON response from Voila API")
-                return None
+                
             except Exception as e:
                 logging.error(f"Error processing response data: {str(e)}")
-                return None
+                # Return a minimal response with default values
+                return {
+                    "regionId": "unknown",
+                    "nickname": "Unknown Region",
+                    "displayAddress": "Address unavailable",
+                    "postalCode": "Unknown"
+                }
         else:
             logging.error(f"Error response from Voila API: {response.status_code}")
             return None
@@ -107,9 +112,24 @@ def get_region_info(session_id):
     except requests.exceptions.RequestException as e:
         logging.error(f"Request error: {str(e)}")
         return None
+    except RecursionError:
+        logging.error("Recursion depth exceeded when processing region info")
+        # Return a minimal response with default values
+        return {
+            "regionId": "unknown", 
+            "nickname": "Unknown Region",
+            "displayAddress": "Address unavailable",
+            "postalCode": "Unknown"
+        }
     except Exception as e:
         logging.error(f"Error getting region info: {str(e)}")
-        return None
+        # Return a minimal response with default values instead of None
+        return {
+            "regionId": "unknown",
+            "nickname": "Unknown Region",
+            "displayAddress": "Address unavailable",
+            "postalCode": "Unknown"
+        }
         
 def parse_search_terms(search_input):
     """
