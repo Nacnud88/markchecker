@@ -173,15 +173,19 @@ def parse_search_terms(search_input):
     # Remove duplicates while preserving order
     seen = set()
     unique_terms = []
+    duplicates = []
+    
     for term in terms:
         if term not in seen:
             seen.add(term)
             unique_terms.append(term)
+        else:
+            duplicates.append(term)
     
     # Calculate how many duplicates were removed
     duplicate_count = total_terms - len(unique_terms)
     
-    return unique_terms, duplicate_count, contains_ea_codes
+    return unique_terms, duplicate_count, contains_ea_codes, duplicates
     
 def fetch_product_data(product_id, session_id):
     """Fetch product data from Voila.ca API using the provided session ID"""
@@ -361,7 +365,7 @@ def extract_product_fields(product_json, product_id):
     except Exception as e:
         print(f"Error in fallback extraction: {str(e)}")
         return None
-def process_term(term, session_id, limit):
+def process_term(term, session_id, limit, is_article_search=True):
     """Process a single search term and return products found"""
     try:
         # Fetch data from Voila API
@@ -389,37 +393,41 @@ def process_term(term, session_id, limit):
             if product_entities:
                 total_found = len(product_entities)
                 
-                # Apply limit if needed
-                if limit != 'all':
-                    try:
-                        max_items = int(limit) if isinstance(limit, str) else limit
-                        product_keys = list(product_entities.keys())[:max_items]
-                    except (ValueError, TypeError):
-                        product_keys = list(product_entities.keys())
+                # Different handling for article search vs. generic search
+                if is_article_search:
+                    # For article search, we typically want the first/best match
+                    product_keys = list(product_entities.keys())[:1]
                 else:
-                    # For 'all', return all products up to a reasonable maximum (50)
-                    product_keys = list(product_entities.keys())[:50]
+                    # For generic search, apply the user-specified limit
+                    if limit != 'all':
+                        try:
+                            max_items = int(limit) if isinstance(limit, str) else limit
+                            product_keys = list(product_entities.keys())[:max_items]
+                        except (ValueError, TypeError):
+                            product_keys = list(product_entities.keys())[:10]  # Default to 10
+                    else:
+                        # For 'all', return all products up to a maximum (50)
+                        product_keys = list(product_entities.keys())[:50]
                 
-                # Process first product for return
-                if product_keys:
-                    product_id = product_keys[0]
-                    product = product_entities[product_id]
+                # Process products and return them all for generic search
+                if not is_article_search and len(product_keys) > 0:
+                    # For generic search, return a list of all products
+                    all_products = []
                     
-                    # Extract product details safely
-                    try:
-                        # Extract product details
+                    for product_id in product_keys:
+                        product = product_entities[product_id]
+                        
+                        # Extract basic product details
                         product_info = {
                             "found": True,
-                            "searchTerm": term,  # Add search term to each product
+                            "searchTerm": term,
                             "productId": product.get("productId"),
                             "retailerProductId": product.get("retailerProductId"),
                             "name": product.get("name"),
                             "brand": product.get("brand"),
                             "available": product.get("available", False),
                             "imageUrl": None,
-                            "currency": "CAD",
-                            "multipleResults": len(product_keys) > 1,
-                            "totalResults": total_found
+                            "currency": "CAD"
                         }
                         
                         # Safely extract image URL
@@ -432,7 +440,7 @@ def process_term(term, session_id, limit):
                         else:
                             product_info["category"] = ""
                         
-                        # Handle price information safely
+                        # Handle price information
                         if "price" in product and isinstance(product["price"], dict):
                             price_info = product["price"]
                             
@@ -445,11 +453,10 @@ def process_term(term, session_id, limit):
                             if "original" in price_info and isinstance(price_info["original"], dict):
                                 product_info["originalPrice"] = price_info["original"].get("amount")
                                 
-                                # Calculate discount percentage if both prices are available
+                                # Calculate discount percentage
                                 if ("currentPrice" in product_info and "originalPrice" in product_info and
                                     product_info["currentPrice"] is not None and product_info["originalPrice"] is not None):
                                     try:
-                                        # Convert to float before calculation
                                         current_price = float(product_info["currentPrice"])
                                         original_price = float(product_info["originalPrice"])
                                         
@@ -457,7 +464,6 @@ def process_term(term, session_id, limit):
                                             discount = ((original_price - current_price) / original_price * 100)
                                             product_info["discountPercentage"] = round(discount)
                                     except (ValueError, TypeError):
-                                        # Handle cases where conversion to float fails
                                         pass
                                         
                             # Unit price
@@ -465,8 +471,8 @@ def process_term(term, session_id, limit):
                                 if "current" in price_info["unit"] and isinstance(price_info["unit"]["current"], dict):
                                     product_info["unitPrice"] = price_info["unit"]["current"].get("amount")
                                 product_info["unitLabel"] = price_info["unit"].get("label")
-                                
-                        # Extract offers (limit to max 5 to save memory)
+                        
+                        # Extract offers
                         if "offers" in product and isinstance(product["offers"], list):
                             offers = product.get("offers", [])
                             product_info["offers"] = offers[:5] if offers else []
@@ -474,43 +480,85 @@ def process_term(term, session_id, limit):
                         if "offer" in product:
                             product_info["primaryOffer"] = product.get("offer")
                         
-                        # Process additional products for generic search terms
-                        if len(product_keys) > 1 and not term.endswith("EA"): 
-                            # Only include additional products for generic searches, not EA codes
-                            product_info["additionalProducts"] = []
-                            
-                            # Process up to the limit or 20 max additional products
-                            max_additional = min(len(product_keys) - 1, 19)  # -1 for the first product already processed
-                            
-                            for i in range(1, max_additional + 1):
-                                add_id = product_keys[i]
-                                add_product = product_entities[add_id]
-                                
-                                # Create a simplified version of the additional product
-                                additional_product = {
-                                    "productId": add_product.get("productId"),
-                                    "retailerProductId": add_product.get("retailerProductId"),
-                                    "name": add_product.get("name"),
-                                    "brand": add_product.get("brand"),
-                                    "available": add_product.get("available", False)
-                                }
-                                
-                                # Add price information if available
-                                if "price" in add_product and isinstance(add_product["price"], dict):
-                                    price_info = add_product["price"]
-                                    if "current" in price_info and isinstance(price_info["current"], dict):
-                                        additional_product["currentPrice"] = price_info["current"].get("amount")
-                                
-                                # Add image if available
-                                if "image" in add_product and isinstance(add_product["image"], dict):
-                                    additional_product["imageUrl"] = add_product["image"].get("src")
-                                
-                                product_info["additionalProducts"].append(additional_product)
+                        all_products.append(product_info)
                     
+                    # Return the entire list of products with the total found
+                    return all_products, total_found
+                
+                # Process just the first product for article searches
+                elif product_keys:
+                    product_id = product_keys[0]
+                    product = product_entities[product_id]
+                    
+                    # Extract product details
+                    try:
+                        # Extract product details
+                        product_info = {
+                            "found": True,
+                            "searchTerm": term,
+                            "productId": product.get("productId"),
+                            "retailerProductId": product.get("retailerProductId"),
+                            "name": product.get("name"),
+                            "brand": product.get("brand"),
+                            "available": product.get("available", False),
+                            "imageUrl": None,
+                            "currency": "CAD"
+                        }
+                        
+                        # Safely extract image URL
+                        if "image" in product and isinstance(product["image"], dict):
+                            product_info["imageUrl"] = product["image"].get("src")
+                        
+                        # Safely extract category
+                        if "categoryPath" in product and isinstance(product["categoryPath"], list):
+                            product_info["category"] = " > ".join(product["categoryPath"])
+                        else:
+                            product_info["category"] = ""
+                        
+                        # Handle price information
+                        if "price" in product and isinstance(product["price"], dict):
+                            price_info = product["price"]
+                            
+                            # Current price
+                            if "current" in price_info and isinstance(price_info["current"], dict):
+                                product_info["currentPrice"] = price_info["current"].get("amount")
+                                product_info["currency"] = price_info["current"].get("currency", "CAD")
+                                
+                            # Original price
+                            if "original" in price_info and isinstance(price_info["original"], dict):
+                                product_info["originalPrice"] = price_info["original"].get("amount")
+                                
+                                # Calculate discount percentage
+                                if ("currentPrice" in product_info and "originalPrice" in product_info and
+                                    product_info["currentPrice"] is not None and product_info["originalPrice"] is not None):
+                                    try:
+                                        current_price = float(product_info["currentPrice"])
+                                        original_price = float(product_info["originalPrice"])
+                                        
+                                        if original_price > current_price:
+                                            discount = ((original_price - current_price) / original_price * 100)
+                                            product_info["discountPercentage"] = round(discount)
+                                    except (ValueError, TypeError):
+                                        pass
+                                        
+                            # Unit price
+                            if "unit" in price_info and isinstance(price_info["unit"], dict):
+                                if "current" in price_info["unit"] and isinstance(price_info["unit"]["current"], dict):
+                                    product_info["unitPrice"] = price_info["unit"]["current"].get("amount")
+                                product_info["unitLabel"] = price_info["unit"].get("label")
+                        
+                        # Extract offers
+                        if "offers" in product and isinstance(product["offers"], list):
+                            offers = product.get("offers", [])
+                            product_info["offers"] = offers[:5] if offers else []
+                            
+                        if "offer" in product:
+                            product_info["primaryOffer"] = product.get("offer")
+                        
                         return product_info, total_found
                     except RecursionError:
                         print(f"Recursion error processing product for term {term}")
-                        # Return a simplified product with the essential information
+                        # Return a simplified product
                         return {
                             "found": True,
                             "searchTerm": term,
@@ -580,6 +628,10 @@ def fetch_product():
         search_term = data.get('searchTerm')
         session_id = data.get('sessionId')
         limit = data.get('limit', 'all')
+        search_type = data.get('searchType', 'article')  # Default to article search
+        
+        # Determine if this is an article search or generic search
+        is_article_search = search_type == 'article'
 
         if not search_term:
             return jsonify({"error": "Search term is required"}), 400
@@ -597,7 +649,7 @@ def fetch_product():
         region_name = region_info.get("nickname") or "Unknown Region"
         
         # Parse search terms using the enhanced parser that returns duplicate info
-        individual_terms, duplicate_count, contains_ea_codes = parse_search_terms(search_term)
+        individual_terms, duplicate_count, contains_ea_codes, duplicates = parse_search_terms(search_term)
         
         logging.info(f"Processing {len(individual_terms)} individual search terms (removed {duplicate_count} duplicates)")
         
@@ -612,13 +664,15 @@ def fetch_product():
                 total_batches = (len(individual_terms) + BATCH_SIZE - 1) // BATCH_SIZE
                 
                 # Start the JSON response
-                yield '{"region_name": %s, "region_info": %s, "search_term": %s, "parsed_terms": %s, "duplicate_count": %d, "contains_ea_codes": %s, "status": "processing", "total_terms": %d, "total_batches": %d, "products": [' % (
+                yield '{"region_name": %s, "region_info": %s, "search_term": %s, "parsed_terms": %s, "duplicate_count": %d, "duplicates": %s, "contains_ea_codes": %s, "search_type": %s, "status": "processing", "total_terms": %d, "total_batches": %d, "products": [' % (
                     json.dumps(region_name),
                     json.dumps(region_info),
                     json.dumps(search_term),
                     json.dumps(individual_terms),
                     duplicate_count,
+                    json.dumps(duplicates),
                     json.dumps(contains_ea_codes),
+                    json.dumps(search_type),
                     len(individual_terms),
                     total_batches
                 )
@@ -639,7 +693,7 @@ def fetch_product():
                     
                     with ThreadPoolExecutor(max_workers=batch_workers) as executor:
                         # Create a dictionary mapping futures to their corresponding terms
-                        futures = {executor.submit(process_term, term, session_id, limit): term for term in batch_terms}
+                        futures = {executor.submit(process_term, term, session_id, limit, is_article_search): term for term in batch_terms}
                         
                         # Process futures as they complete
                         for future in as_completed(futures):
@@ -647,8 +701,26 @@ def fetch_product():
                             processed_count += 1
                             
                             try:
-                                product_info, term_total_found = future.result()
-                                if product_info:  # Only process if we have a valid product info
+                                product_result, term_total_found = future.result()
+                                
+                                # Handle both single product and list of products results
+                                if isinstance(product_result, list):
+                                    # For generic search that returns multiple products
+                                    batch_total_found += term_total_found
+                                    
+                                    for idx, product_info in enumerate(product_result):
+                                        if not first_product and idx == 0:
+                                            yield ','
+                                        elif idx > 0:
+                                            yield ','
+                                            
+                                        if idx == 0:
+                                            first_product = False
+                                            
+                                        # Yield the product as JSON
+                                        yield json.dumps(product_info)
+                                        batch_products.append(product_info)
+                                elif product_result:  # Single product result
                                     batch_total_found += term_total_found
                                     
                                     # Add comma if not the first product
@@ -657,8 +729,8 @@ def fetch_product():
                                     first_product = False
                                     
                                     # Yield the product as JSON
-                                    yield json.dumps(product_info)
-                                    batch_products.append(product_info)
+                                    yield json.dumps(product_result)
+                                    batch_products.append(product_result)
                                     
                             except Exception as e:
                                 logging.error(f"Error processing term {term}: {str(e)}")
@@ -717,7 +789,7 @@ def fetch_product():
         
         with ThreadPoolExecutor(max_workers=min(MAX_WORKERS, len(individual_terms))) as executor:
             future_to_term = {
-                executor.submit(process_term, term, session_id, limit): term
+                executor.submit(process_term, term, session_id, limit, is_article_search): term
                 for term in individual_terms
             }
             
@@ -725,12 +797,24 @@ def fetch_product():
                 term = future_to_term[future]
                 
                 try:
-                    product_info, term_total_found = future.result()
-                    if product_info:
-                        products.append(product_info)
+                    product_result, term_total_found = future.result()
+                    
+                    # Handle both single product and list of products results
+                    if isinstance(product_result, list):
+                        # For generic search that returns multiple products
+                        products.extend(product_result)
                         total_found += term_total_found
                         
-                        if not product_info.get("found", False):
+                        # Check for not found products
+                        not_found_in_batch = [p for p in product_result if not p.get("found", False)]
+                        if not_found_in_batch:
+                            not_found_terms.append(term)
+                    elif product_result:
+                        # For single product result
+                        products.append(product_result)
+                        total_found += term_total_found
+                        
+                        if not product_result.get("found", False):
                             not_found_terms.append(term)
                         
                 except Exception as e:
@@ -759,7 +843,9 @@ def fetch_product():
             "search_term": search_term,
             "parsed_terms": individual_terms,
             "duplicate_count": duplicate_count,
+            "duplicates": duplicates,
             "contains_ea_codes": contains_ea_codes,
+            "search_type": search_type,
             "total_found": total_found,
             "not_found_terms": not_found_terms,
             "products": products,
