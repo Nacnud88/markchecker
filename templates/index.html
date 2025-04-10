@@ -25,6 +25,9 @@
             --voila-muted-teal: #2a6762;
             --voila-light-bg: #f8f9fa;
             --voila-gray: #6c757d;
+            --voila-red: #dc3545;
+            --voila-light-red: #f8d7da;
+            --voila-dark-red: #842029;
         }
 
         body {
@@ -86,6 +89,27 @@
             height: 200px;
             object-fit: contain;
             padding: 10px;
+        }
+
+        /* Not Found Card Styles */
+        .not-found-card {
+            background-color: var(--voila-light-red);
+            border-left: 5px solid var(--voila-red);
+        }
+
+        .not-found-icon {
+            font-size: 4rem;
+            color: var(--voila-red);
+            opacity: 0.7;
+        }
+
+        .not-found-title {
+            font-weight: 600;
+            color: var(--voila-dark-red);
+        }
+
+        .not-found-message {
+            color: var(--voila-dark-red);
         }
 
         /* Session ID Section */
@@ -396,6 +420,7 @@
             let allSearchResults = [];
             let totalFoundProducts = 0;
             let displayedProducts = 0;
+            let notFoundProducts = 0;
             let currentRegionInfo = null;
 
             // Set up event listeners
@@ -516,101 +541,92 @@
                 allSearchResults = [];
                 totalFoundProducts = 0;
                 displayedProducts = 0;
+                notFoundProducts = 0;
 
-                // Create a promise for each search term
-                const searchPromises = searchTerms.map(term => {
-                    return new Promise((resolve, reject) => {
-                        // Prepare request payload
-                        const payload = {
-                            sessionId: sessionId,
-                            searchTerm: term,
-                            limit: resultLimit
-                        };
+                // Make API request with all search terms at once
+                const payload = {
+                    sessionId: sessionId,
+                    searchTerm: searchTermsInput,  // Pass the entire string with all search terms
+                    limit: resultLimit
+                };
 
-                        // Make API request
-                        fetch('/api/fetch-product', {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json'
-                            },
-                            body: JSON.stringify(payload)
-                        })
-                        .then(response => response.json())
-                        .then(data => {
-                            if (data.error) {
-                                reject(data.error);
-                                return;
-                            }
+                // Make API request
+                fetch('/api/fetch-product', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(payload)
+                })
+                .then(response => response.json())
+                .then(data => {
+                    // Hide loading spinner
+                    loadingSpinner.style.display = 'none';
 
-                            // Store region info if available
-                            if (data.region_info) {
-                                currentRegionInfo = data.region_info;
-
-                                // Update region banner
-                                regionInfoBanner.style.display = 'flex';
-                                const regionName = data.region_info.nickname || 'Unknown Region';
-                                const address = data.region_info.displayAddress || '';
-                                const postalCode = data.region_info.postalCode || '';
-
-                                regionText.innerHTML = `
-                                    <div>
-                                        <strong>Request sent from ${regionName} region</strong><br>
-                                        ${address}<br>
-                                        Postal Code: ${postalCode}
-                                    </div>
-                                `;
-                            }
-
-                            // Add search term to each product for reference
-                            if (data.products && data.products.length) {
-                                data.products.forEach(product => {
-                                    product.searchTerm = term;
-                                });
-
-                                // Add to total count and results
-                                totalFoundProducts += data.total_found;
-                                allSearchResults = [...allSearchResults, ...data.products];
-                                displayedProducts += data.products.length;
-                            }
-
-                            resolve();
-                        })
-                        .catch(error => {
-                            reject(error);
-                        });
-                    });
-                });
-
-                // Execute all searches
-                Promise.all(searchPromises)
-                    .then(() => {
-                        // Hide loading spinner
-                        loadingSpinner.style.display = 'none';
-
-                        // Update results title
-                        const regionName = currentRegionInfo?.nickname || 'Unknown Region';
-                        searchResultsTitle.textContent = `Search Results for ${regionName}`;
-
-                        // Update stats
-                        resultStats.textContent = `Found ${totalFoundProducts} products, showing ${displayedProducts}`;
-
-                        // Show export button if we have results
-                        exportButton.style.display = allSearchResults.length > 0 ? 'block' : 'none';
-
-                        // Show results section
-                        searchInfo.style.display = 'block';
-
-                        // Display products
-                        displayResults(allSearchResults, resultsContainer);
-                    })
-                    .catch(error => {
-                        loadingSpinner.style.display = 'none';
+                    if (data.error) {
                         searchInfo.style.display = 'block';
                         searchResultsTitle.textContent = `Error`;
-                        resultStats.innerHTML = `<div class="alert alert-danger">Error: ${error}</div>`;
-                        exportButton.style.display = 'none';
-                        console.error('Error:', error);
-                    });
+                        resultStats.innerHTML = `<div class="alert alert-danger">Error: ${data.error}</div>`;
+                        return;
+                    }
+
+                    // Store region info if available
+                    if (data.region_info) {
+                        currentRegionInfo = data.region_info;
+
+                        // Update region banner
+                        regionInfoBanner.style.display = 'flex';
+                        const regionName = data.region_info.nickname || 'Unknown Region';
+                        const address = data.region_info.displayAddress || '';
+                        const postalCode = data.region_info.postalCode || '';
+
+                        regionText.innerHTML = `
+                            <div>
+                                <strong>Request sent from ${regionName} region</strong><br>
+                                ${address}<br>
+                                Postal Code: ${postalCode}
+                            </div>
+                        `;
+                    }
+
+                    // Count found and not found products
+                    if (data.products && data.products.length) {
+                        // Count normal and not found products
+                        const foundProducts = data.products.filter(p => p.found === true);
+                        const notFoundProds = data.products.filter(p => p.found === false);
+                        
+                        totalFoundProducts = data.total_found || foundProducts.length;
+                        notFoundProducts = notFoundProds.length;
+                        displayedProducts = data.products.length;
+                        
+                        // Store all products for display and export
+                        allSearchResults = data.products;
+                    }
+
+                    // Update results title
+                    const regionName = currentRegionInfo?.nickname || 'Unknown Region';
+                    searchResultsTitle.textContent = `Search Results for ${regionName}`;
+
+                    // Update stats
+                    resultStats.textContent = `Found ${totalFoundProducts} products, ${notFoundProducts} not found, showing ${displayedProducts} total`;
+
+                    // Show export button if we have results
+                    exportButton.style.display = allSearchResults.length > 0 ? 'block' : 'none';
+
+                    // Show results section
+                    searchInfo.style.display = 'block';
+
+                    // Display products
+                    displayResults(allSearchResults, resultsContainer);
+                })
+                .catch(error => {
+                    loadingSpinner.style.display = 'none';
+                    searchInfo.style.display = 'block';
+                    searchResultsTitle.textContent = `Error`;
+                    resultStats.innerHTML = `<div class="alert alert-danger">Error: ${error}</div>`;
+                    exportButton.style.display = 'none';
+                    console.error('Error:', error);
+                });
             }
 
             function displayResults(products, containerElement) {
@@ -622,106 +638,151 @@
                 // Clear previous results
                 containerElement.innerHTML = '';
 
-                // Create product cards
-                products.forEach(product => {
-                    const productCard = document.createElement('div');
-                    productCard.className = 'col-md-4 col-lg-3 mb-4';
+                // First display found products, then not found ones
+                const foundProducts = products.filter(product => product.found === true);
+                const notFoundProducts = products.filter(product => product.found === false);
 
-                    // Format price display - Handle non-number values
-                    let priceDisplay = '';
-                    let discountBadge = '';
-
-                    if (product.currentPrice !== null && product.currentPrice !== undefined) {
-                        // Safely format the current price
-                        const formattedPrice = typeof product.currentPrice === 'number' 
-                            ? product.currentPrice.toFixed(2) 
-                            : product.currentPrice;
-
-                        priceDisplay = `<div class="price-tag">$${formattedPrice}`;
-
-                        // Handle discount percentage if available
-                        if (product.discountPercentage) {
-                            discountBadge = `<span class="discount-badge">-${product.discountPercentage}%</span>`;
-                            priceDisplay += discountBadge;
-                        }
-
-                        priceDisplay += `</div>`;
-
-                        // Handle original price if it exists
-                        if (product.originalPrice && product.originalPrice > product.currentPrice) {
-                            // Safely format the original price
-                            const formattedOriginal = typeof product.originalPrice === 'number'
-                                ? product.originalPrice.toFixed(2)
-                                : product.originalPrice;
-
-                            priceDisplay += `<div class="original-price">$${formattedOriginal}</div>`;
-                        }
-                    } else {
-                        priceDisplay = '<div class="price-tag">Price unavailable</div>';
-                    }
-
-                    // Format unit price if available
-                    let unitPriceDisplay = '';
-                    if (product.unitPrice && product.unitLabel) {
-                        // Safely format the unit price
-                        const formattedUnitPrice = typeof product.unitPrice === 'number'
-                            ? product.unitPrice.toFixed(2)
-                            : product.unitPrice;
-
-                        unitPriceDisplay = `<div class="small text-muted">$${formattedUnitPrice} / ${product.unitLabel}</div>`;
-                    }
-
-                    // Format availability badge
-                    const availabilityBadge = product.available
-                        ? '<span class="badge bg-success">Available</span>'
-                        : '<span class="badge bg-danger">Unavailable</span>';
-
-                    // Format offers and Scene+ offers
-                    let offersDisplay = '';
-                    if (product.offers && product.offers.length > 0) {
-                        offersDisplay = '<div class="mt-2 mb-2">';
-
-                        product.offers.forEach(offer => {
-                            if (offer.description && offer.description.includes('SCENE+')) {
-                                offersDisplay += `<span class="scene-badge">${offer.description}</span>`;
-                            } else if (offer.description) {
-                                offersDisplay += `<span class="offer-badge">${offer.description}</span>`;
-                            }
-                        });
-
-                        offersDisplay += '</div>';
-                    }
-
-                    // Add search term badge if available
-                    const searchTermBadge = product.searchTerm 
-                        ? `<div class="mb-2"><span class="badge bg-info">${product.searchTerm}</span></div>` 
-                        : '';
-
-                    productCard.innerHTML = `
-                        <div class="card product-card">
-                            <img src="${product.imageUrl || 'https://via.placeholder.com/200x200?text=No+Image'}" 
-                                 class="card-img-top product-img" alt="${product.name || 'Product Image'}">
-                            <div class="card-body">
-                                <h5 class="card-title">${product.name || 'Unknown Product'}</h5>
-                                <p class="card-text small text-muted">${product.brand || 'Unknown brand'}</p>
-                                ${searchTermBadge}
-                                ${offersDisplay}
-                                <div class="mb-2">
-                                    ${priceDisplay}
-                                    ${unitPriceDisplay}
-                                </div>
-                                <div>
-                                    ${availabilityBadge}
-                                </div>
-                            </div>
-                            <div class="card-footer bg-white">
-                                <small class="text-muted">ID: ${product.retailerProductId || product.productId || 'N/A'}</small>
-                            </div>
-                        </div>
-                    `;
-
+                // Display found products
+                foundProducts.forEach(product => {
+                    const productCard = createProductCard(product);
                     containerElement.appendChild(productCard);
                 });
+
+                // Display not found products
+                notFoundProducts.forEach(product => {
+                    const notFoundCard = createNotFoundCard(product);
+                    containerElement.appendChild(notFoundCard);
+                });
+            }
+
+            function createProductCard(product) {
+                const productCard = document.createElement('div');
+                productCard.className = 'col-md-4 col-lg-3 mb-4';
+
+                // Format price display - Handle non-number values
+                let priceDisplay = '';
+                let discountBadge = '';
+
+                if (product.currentPrice !== null && product.currentPrice !== undefined) {
+                    // Safely format the current price
+                    const formattedPrice = typeof product.currentPrice === 'number' 
+                        ? product.currentPrice.toFixed(2) 
+                        : product.currentPrice;
+
+                    priceDisplay = `<div class="price-tag">$${formattedPrice}`;
+
+                    // Handle discount percentage if available
+                    if (product.discountPercentage) {
+                        discountBadge = `<span class="discount-badge">-${product.discountPercentage}%</span>`;
+                        priceDisplay += discountBadge;
+                    }
+
+                    priceDisplay += `</div>`;
+
+                    // Handle original price if it exists
+                    if (product.originalPrice && product.originalPrice > product.currentPrice) {
+                        // Safely format the original price
+                        const formattedOriginal = typeof product.originalPrice === 'number'
+                            ? product.originalPrice.toFixed(2)
+                            : product.originalPrice;
+
+                        priceDisplay += `<div class="original-price">$${formattedOriginal}</div>`;
+                    }
+                } else {
+                    priceDisplay = '<div class="price-tag">Price unavailable</div>';
+                }
+
+                // Format unit price if available
+                let unitPriceDisplay = '';
+                if (product.unitPrice && product.unitLabel) {
+                    // Safely format the unit price
+                    const formattedUnitPrice = typeof product.unitPrice === 'number'
+                        ? product.unitPrice.toFixed(2)
+                        : product.unitPrice;
+
+                    unitPriceDisplay = `<div class="small text-muted">$${formattedUnitPrice} / ${product.unitLabel}</div>`;
+                }
+
+                // Format availability badge
+                const availabilityBadge = product.available
+                    ? '<span class="badge bg-success">Available</span>'
+                    : '<span class="badge bg-danger">Unavailable</span>';
+
+                // Format offers and Scene+ offers
+                let offersDisplay = '';
+                if (product.offers && product.offers.length > 0) {
+                    offersDisplay = '<div class="mt-2 mb-2">';
+
+                    product.offers.forEach(offer => {
+                        if (offer.description && offer.description.includes('SCENE+')) {
+                            offersDisplay += `<span class="scene-badge">${offer.description}</span>`;
+                        } else if (offer.description) {
+                            offersDisplay += `<span class="offer-badge">${offer.description}</span>`;
+                        }
+                    });
+
+                    offersDisplay += '</div>';
+                }
+
+                // Add search term badge if available
+                const searchTermBadge = product.searchTerm 
+                    ? `<div class="mb-2"><span class="badge bg-info">${product.searchTerm}</span></div>` 
+                    : '';
+
+                productCard.innerHTML = `
+                    <div class="card product-card">
+                        <img src="${product.imageUrl || 'https://via.placeholder.com/200x200?text=No+Image'}" 
+                             class="card-img-top product-img" alt="${product.name || 'Product Image'}">
+                        <div class="card-body">
+                            <h5 class="card-title">${product.name || 'Unknown Product'}</h5>
+                            <p class="card-text small text-muted">${product.brand || 'Unknown brand'}</p>
+                            ${searchTermBadge}
+                            ${offersDisplay}
+                            <div class="mb-2">
+                                ${priceDisplay}
+                                ${unitPriceDisplay}
+                            </div>
+                            <div>
+                                ${availabilityBadge}
+                            </div>
+                        </div>
+                        <div class="card-footer bg-white">
+                            <small class="text-muted">ID: ${product.retailerProductId || product.productId || 'N/A'}</small>
+                        </div>
+                    </div>
+                `;
+
+                return productCard;
+            }
+
+            function createNotFoundCard(product) {
+                const notFoundCard = document.createElement('div');
+                notFoundCard.className = 'col-md-4 col-lg-3 mb-4';
+
+                // Add search term badge if available
+                const searchTermBadge = product.searchTerm 
+                    ? `<div class="mb-2"><span class="badge bg-info">${product.searchTerm}</span></div>` 
+                    : '';
+
+                notFoundCard.innerHTML = `
+                    <div class="card product-card not-found-card">
+                        <div class="card-body text-center">
+                            <div class="py-4">
+                                <i class="fas fa-exclamation-triangle not-found-icon mb-3"></i>
+                                <h5 class="card-title not-found-title">Article Not Found</h5>
+                                ${searchTermBadge}
+                                <p class="card-text not-found-message">
+                                    ${product.notFoundMessage || 'This article was not found. It may not be published yet or could be a typo.'}
+                                </p>
+                            </div>
+                        </div>
+                        <div class="card-footer bg-white">
+                            <small class="text-muted">Search term: ${product.searchTerm || 'N/A'}</small>
+                        </div>
+                    </div>
+                `;
+
+                return notFoundCard;
             }
 
             function exportToExcel() {
@@ -766,7 +827,28 @@
                         }
                     }
 
-                    // Return formatted row
+                    // Check if this is a not found product
+                    if (product.found === false) {
+                        return {
+                            "Search Term": product.searchTerm || 'N/A',
+                            "Product ID": 'NOT_FOUND',
+                            "Name": `Article Not Found: ${product.searchTerm || ''}`,
+                            "Brand": 'N/A',
+                            "Category": 'N/A',
+                            "Current Price": 'N/A',
+                            "Original Price": 'N/A',
+                            "Discount %": 'N/A',
+                            "Unit Price": 'N/A',
+                            "Unit": 'N/A',
+                            "Available": 'No',
+                            "Scene+ Offers": 'N/A',
+                            "Other Offers": 'N/A',
+                            "Image URL": 'N/A',
+                            "Not Found Reason": product.notFoundMessage || 'Article not published or typo'
+                        };
+                    }
+
+                    // Return formatted row for normal product
                     return {
                         "Search Term": product.searchTerm || 'N/A',
                         "Product ID": product.retailerProductId || product.productId || 'N/A',
@@ -781,7 +863,8 @@
                         "Available": product.available ? 'Yes' : 'No',
                         "Scene+ Offers": sceneOffers || 'None',
                         "Other Offers": otherOffers || 'None',
-                        "Image URL": product.imageUrl || 'N/A'
+                        "Image URL": product.imageUrl || 'N/A',
+                        "Not Found Reason": ''
                     };
                 });
 
@@ -803,7 +886,8 @@
                     {wch: 10}, // Available
                     {wch: 30}, // Scene+ Offers
                     {wch: 30}, // Other Offers
-                    {wch: 50}  // Image URL
+                    {wch: 50}, // Image URL
+                    {wch: 40}  // Not Found Reason
                 ];
 
                 ws['!cols'] = wscols;
