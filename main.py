@@ -7,6 +7,7 @@ import random
 import re
 import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
+import sys
 
 import gc
 
@@ -27,6 +28,8 @@ BATCH_SIZE = 20
 def index():
     """Serve the main HTML page"""
     return render_template('index.html')
+
+sys.setrecursionlimit(2000)  # Default is usually 1000
 
 def get_region_info(session_id):
     """Get region ID and details from Voila API using session ID"""
@@ -57,10 +60,6 @@ def get_region_info(session_id):
                 "displayAddress": None,
                 "postalCode": None
             }
-            
-            # Use simple string operations to find key values
-            # This avoids the recursion issues with complex JSON structures
-            import re
             
             # Extract region ID
             region_id_match = re.search(r'"regionId"\s*:\s*"?(\d+)"?', text_response)
@@ -174,108 +173,100 @@ def parse_search_terms(search_input):
 
 def fetch_product_data(product_id, session_id):
     """Fetch product data from Voila.ca API using the provided session ID"""
-    url = "https://voila.ca/api/v6/products/search"
-
-    headers = {
-        "accept": "application/json; charset=utf-8",
-        "client-route-id": "5fa0016c-9764-4e09-9738-12c33fb47fc2",
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
-    }
-
-    cookies = {
-        "global_sid": session_id
-    }
-
-    params = {
-        "term": product_id
-    }
-
-    # Add timeout to prevent hanging requests
     try:
-        response = requests.get(url, headers=headers, params=params, cookies=cookies, timeout=REQUEST_TIMEOUT)
+        url = "https://voila.ca/api/v6/products/search"
+
+        headers = {
+            "accept": "application/json; charset=utf-8",
+            "client-route-id": "5fa0016c-9764-4e09-9738-12c33fb47fc2",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+        }
+
+        cookies = {
+            "global_sid": session_id
+        }
+
+        params = {
+            "term": product_id
+        }
+
+        # Add timeout to prevent hanging requests
+        response = requests.get(url, headers=headers, params=params, cookies=cookies, timeout=15)
 
         if response.status_code != 200:
-            logging.warning(f"API returned status code {response.status_code} for term {product_id}")
-            return None
-
-        # Parse JSON with error handling
-        try:
-            return response.json()
-        except json.JSONDecodeError as e:
-            logging.error(f"JSON decode error for term {product_id}: {str(e)}")
+            print(f"API returned status code {response.status_code} for term {product_id}")
             return None
             
+        # Instead of using response.json() which can cause recursion issues,
+        # we'll manually parse only the parts we need
+        text_response = response.text
+        
+        # Create a basic structure for the result
+        result = {
+            "entities": {
+                "product": {}
+            }
+        }
+        
+        # Find all product blocks in the response
+        # This regex looks for "productId":"some-id" patterns
+        product_blocks = re.finditer(r'"productId"\s*:\s*"([^"]+)"', text_response)
+        
+        # Process each product match to extract relevant data
+        for match in product_blocks:
+            try:
+                # Find the start of this product's JSON object
+                product_start = text_response.rfind('{', 0, match.start())
+                
+                # Look for the closing bracket, but limit the search to a reasonable chunk
+                # This prevents parsing the entire massive JSON if it's too large
+                search_end = min(match.start() + 10000, len(text_response))
+                chunk = text_response[product_start:search_end]
+                
+                # Count opening and closing brackets to find the end of this product
+                bracket_count = 1
+                product_end = 0
+                
+                for i, char in enumerate(chunk[1:], 1):
+                    if char == '{':
+                        bracket_count += 1
+                    elif char == '}':
+                        bracket_count -= 1
+                        
+                    if bracket_count == 0:
+                        product_end = product_start + i + 1
+                        break
+                
+                if product_end > 0:
+                    # Try to parse just this product chunk
+                    product_json = chunk[:product_end-product_start]
+                    try:
+                        product_data = json.loads(product_json)
+                        product_id = product_data.get("productId")
+                        
+                        if product_id:
+                            # Store only this product in our result
+                            result["entities"]["product"][product_id] = product_data
+                    except json.JSONDecodeError:
+                        # If we can't parse this product, just skip it
+                        continue
+            except Exception as e:
+                # Skip any products that cause errors during processing
+                print(f"Error processing product match: {str(e)}")
+                continue
+                
+        return result
+        
     except requests.exceptions.Timeout:
-        logging.warning(f"Request timeout for term {product_id}")
+        print(f"Request timeout for term {product_id}")
         return None
-    except requests.exceptions.RequestException as e:
-        logging.error(f"Request error for term {product_id}: {str(e)}")
-        return None
+    except RecursionError:
+        print(f"Recursion error fetching product data for {product_id}")
+        # Return a minimal valid structure
+        return {"entities": {"product": {}}}
     except Exception as e:
-        logging.error(f"Unexpected error fetching product data for {product_id}: {str(e)}")
+        print(f"Unexpected error fetching product data for {product_id}: {str(e)}")
         return None
-def process_product(product):
-    """Process a product from the API response"""
-    if not product:
-        return None
-
-    # Extract basic product details
-    product_info = {
-        "found": True,  # Flag to indicate this is a found product
-        "productId": product.get("productId"),
-        "retailerProductId": product.get("retailerProductId"),
-        "name": product.get("name"),
-        "brand": product.get("brand"),
-        "available": product.get("available", False),
-        "category": " > ".join(product.get("categoryPath", [])) if "categoryPath" in product else "",
-        "imageUrl": product.get("image", {}).get("src") if "image" in product else None,
-        "offers": []
-    }
-
-    # Handle price information
-    if "price" in product:
-        price_info = product["price"]
-
-        # Current price
-        if "current" in price_info:
-            product_info["currentPrice"] = price_info["current"].get("amount")
-            product_info["currency"] = price_info["current"].get("currency", "CAD")
-
-        # Original price
-        if "original" in price_info:
-            product_info["originalPrice"] = price_info["original"].get("amount")
-
-            # Calculate discount percentage if both prices are available
-            if ("currentPrice" in product_info and "originalPrice" in product_info and
-                product_info["currentPrice"] is not None and product_info["originalPrice"] is not None):
-                try:
-                    # Convert to float before calculation
-                    current_price = float(product_info["currentPrice"])
-                    original_price = float(product_info["originalPrice"])
-
-                    if original_price > current_price:
-                        discount = ((original_price - current_price) / original_price * 100)
-                        product_info["discountPercentage"] = round(discount)
-                except (ValueError, TypeError):
-                    # Handle cases where conversion to float fails
-                    pass
-
-        # Unit price
-        if "unit" in price_info:
-            product_info["unitPrice"] = price_info["unit"].get("current", {}).get("amount")
-            product_info["unitLabel"] = price_info["unit"].get("label")
-
-    # Extract offers
-    if "offers" in product:
-        product_info["offers"] = product.get("offers", [])
-
-    # Extract primary offer
-    if "offer" in product:
-        product_info["primaryOffer"] = product.get("offer")
-        if product_info["primaryOffer"] and product_info["primaryOffer"] not in product_info["offers"]:
-            product_info["offers"].append(product_info["primaryOffer"])
-
-    return product_info
 
 def process_term(term, session_id, limit):
     """Process a single search term and return products found"""
@@ -320,61 +311,89 @@ def process_term(term, session_id, limit):
                     product_id = product_keys[0]
                     product = product_entities[product_id]
                     
-                    # Extract product details
-                    product_info = {
-                        "found": True,
-                        "searchTerm": term,  # Add search term to each product
-                        "productId": product.get("productId"),
-                        "retailerProductId": product.get("retailerProductId"),
-                        "name": product.get("name"),
-                        "brand": product.get("brand"),
-                        "available": product.get("available", False),
-                        "category": " > ".join(product.get("categoryPath", [])) if "categoryPath" in product else "",
-                        "imageUrl": product.get("image", {}).get("src"),
-                        "currency": product.get("price", {}).get("current", {}).get("currency", "CAD")
-                    }
+                    # Extract product details safely
+                    try:
+                        # Extract product details
+                        product_info = {
+                            "found": True,
+                            "searchTerm": term,  # Add search term to each product
+                            "productId": product.get("productId"),
+                            "retailerProductId": product.get("retailerProductId"),
+                            "name": product.get("name"),
+                            "brand": product.get("brand"),
+                            "available": product.get("available", False),
+                            "imageUrl": None,
+                            "currency": "CAD"
+                        }
+                        
+                        # Safely extract image URL
+                        if "image" in product and isinstance(product["image"], dict):
+                            product_info["imageUrl"] = product["image"].get("src")
+                        
+                        # Safely extract category
+                        if "categoryPath" in product and isinstance(product["categoryPath"], list):
+                            product_info["category"] = " > ".join(product["categoryPath"])
+                        else:
+                            product_info["category"] = ""
+                        
+                        # Handle price information safely
+                        if "price" in product and isinstance(product["price"], dict):
+                            price_info = product["price"]
+                            
+                            # Current price
+                            if "current" in price_info and isinstance(price_info["current"], dict):
+                                product_info["currentPrice"] = price_info["current"].get("amount")
+                                product_info["currency"] = price_info["current"].get("currency", "CAD")
+                                
+                            # Original price
+                            if "original" in price_info and isinstance(price_info["original"], dict):
+                                product_info["originalPrice"] = price_info["original"].get("amount")
+                                
+                                # Calculate discount percentage if both prices are available
+                                if ("currentPrice" in product_info and "originalPrice" in product_info and
+                                    product_info["currentPrice"] is not None and product_info["originalPrice"] is not None):
+                                    try:
+                                        # Convert to float before calculation
+                                        current_price = float(product_info["currentPrice"])
+                                        original_price = float(product_info["originalPrice"])
+                                        
+                                        if original_price > current_price:
+                                            discount = ((original_price - current_price) / original_price * 100)
+                                            product_info["discountPercentage"] = round(discount)
+                                    except (ValueError, TypeError):
+                                        # Handle cases where conversion to float fails
+                                        pass
+                                        
+                            # Unit price
+                            if "unit" in price_info and isinstance(price_info["unit"], dict):
+                                if "current" in price_info["unit"] and isinstance(price_info["unit"]["current"], dict):
+                                    product_info["unitPrice"] = price_info["unit"]["current"].get("amount")
+                                product_info["unitLabel"] = price_info["unit"].get("label")
+                                
+                        # Extract offers (limit to max 5 to save memory)
+                        if "offers" in product and isinstance(product["offers"], list):
+                            offers = product.get("offers", [])
+                            product_info["offers"] = offers[:5] if offers else []
+                            
+                        if "offer" in product:
+                            product_info["primaryOffer"] = product.get("offer")
                     
-                    # Handle price information
-                    if "price" in product:
-                        price_info = product["price"]
-                        
-                        # Current price
-                        if "current" in price_info:
-                            product_info["currentPrice"] = price_info["current"].get("amount")
-                            
-                        # Original price
-                        if "original" in price_info:
-                            product_info["originalPrice"] = price_info["original"].get("amount")
-                            
-                            # Calculate discount percentage if both prices are available
-                            if (product_info["currentPrice"] is not None and 
-                                product_info["originalPrice"] is not None):
-                                try:
-                                    # Convert to float before calculation
-                                    current_price = float(product_info["currentPrice"])
-                                    original_price = float(product_info["originalPrice"])
-                                    
-                                    if original_price > current_price:
-                                        discount = ((original_price - current_price) / original_price * 100)
-                                        product_info["discountPercentage"] = round(discount)
-                                except (ValueError, TypeError):
-                                    # Handle cases where conversion to float fails
-                                    pass
-                                    
-                        # Unit price
-                        if "unit" in price_info:
-                            product_info["unitPrice"] = price_info["unit"].get("current", {}).get("amount")
-                            product_info["unitLabel"] = price_info["unit"].get("label")
-                            
-                    # Extract offers (limit to max 5 to save memory)
-                    if "offers" in product:
-                        offers = product.get("offers", [])
-                        product_info["offers"] = offers[:5] if offers else []
-                        
-                    if "offer" in product:
-                        product_info["primaryOffer"] = product.get("offer")
-                        
-                    return product_info, total_found
+                        return product_info, total_found
+                    except RecursionError:
+                        print(f"Recursion error processing product for term {term}")
+                        # Return a simplified product with the essential information
+                        return {
+                            "found": True,
+                            "searchTerm": term,
+                            "productId": product.get("productId"),
+                            "name": product.get("name", "Product Name Unavailable"),
+                            "brand": product.get("brand", "Brand Unavailable"),
+                            "available": False,
+                            "category": "",
+                            "imageUrl": None,
+                            "currentPrice": None,
+                            "message": "Product data too complex to fully process"
+                        }, 1
         
         # If we get here, no products were found
         return {
@@ -390,8 +409,22 @@ def process_term(term, session_id, limit):
             "notFoundMessage": f"The article \"{term}\" was not found. It may not be published yet or could be a typo."
         }, 0
     
+    except RecursionError:
+        print(f"Recursion error processing term {term}")
+        return {
+            "found": False,
+            "searchTerm": term,
+            "productId": None,
+            "retailerProductId": None,
+            "name": f"Processing Error: {term}",
+            "brand": None,
+            "available": False,
+            "category": "",
+            "imageUrl": None,
+            "notFoundMessage": "Data too complex to process. Try a more specific search term."
+        }, 0
     except Exception as e:
-        logging.error(f"Error processing term {term}: {str(e)}")
+        print(f"Error processing term {term}: {str(e)}")
         # Return error as not found product
         return {
             "found": False,
