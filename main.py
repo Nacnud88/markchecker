@@ -31,8 +31,6 @@ def index():
 def get_region_info(session_id):
     """Get region ID and details from Voila API using session ID"""
     try:
-        logging.info(f"Fetching region info with session ID length: {len(session_id) if session_id else 0}")
-        
         url = "https://voila.ca/api/cart/v1/carts/active"
         
         headers = {
@@ -45,92 +43,90 @@ def get_region_info(session_id):
             "global_sid": session_id
         }
         
-        # Make the request with a timeout to prevent hanging
-        response = requests.get(url, headers=headers, cookies=cookies, timeout=20)
+        # Add timeout to request
+        response = requests.get(url, headers=headers, cookies=cookies, timeout=15)
         
         if response.status_code == 200:
-            try:
-                # Get the raw text first instead of using json() method
-                raw_text = response.text
+            # Use a custom approach to avoid recursion issues
+            text_response = response.text
+            
+            # Initialize the region info with default values
+            region_info = {
+                "regionId": None,
+                "nickname": None,
+                "displayAddress": None,
+                "postalCode": None
+            }
+            
+            # Use simple string operations to find key values
+            # This avoids the recursion issues with complex JSON structures
+            import re
+            
+            # Extract region ID
+            region_id_match = re.search(r'"regionId"\s*:\s*"?(\d+)"?', text_response)
+            if region_id_match:
+                region_info["regionId"] = region_id_match.group(1)
                 
-                # Use a safe approach to extract only the essential fields we need
-                import re
+            # Extract nickname
+            nickname_match = re.search(r'"nickname"\s*:\s*"([^"]+)"', text_response)
+            if nickname_match:
+                region_info["nickname"] = nickname_match.group(1)
                 
-                # Initialize with default values
-                region_info = {
-                    "regionId": None,
-                    "nickname": None,
-                    "displayAddress": None,
-                    "postalCode": None
-                }
+            # Extract display address
+            addr_match = re.search(r'"displayAddress"\s*:\s*"([^"]+)"', text_response)
+            if addr_match:
+                region_info["displayAddress"] = addr_match.group(1)
                 
-                # Use regex to find the key fields directly in the response text
-                region_id_match = re.search(r'"regionId"\s*:\s*"?(\d+)"?', raw_text)
-                if region_id_match:
-                    region_info["regionId"] = region_id_match.group(1)
-                else:
-                    # Alternative match for region ID in other locations
-                    region_id_alt_match = re.search(r'"region"\s*:\s*\{"id"\s*:\s*"?(\d+)"?', raw_text)
-                    if region_id_alt_match:
-                        region_info["regionId"] = region_id_alt_match.group(1)
+            # Extract postal code
+            postal_match = re.search(r'"postalCode"\s*:\s*"([^"]+)"', text_response)
+            if postal_match:
+                region_info["postalCode"] = postal_match.group(1)
                 
-                # Try to find other fields with regex
-                nickname_match = re.search(r'"nickname"\s*:\s*"([^"]+)"', raw_text)
-                if nickname_match:
-                    region_info["nickname"] = nickname_match.group(1)
-                    
-                address_match = re.search(r'"displayAddress"\s*:\s*"([^"]+)"', raw_text)
-                if address_match:
-                    region_info["displayAddress"] = address_match.group(1)
-                    
-                postal_match = re.search(r'"postalCode"\s*:\s*"([^"]+)"', raw_text)
-                if postal_match:
-                    region_info["postalCode"] = postal_match.group(1)
+            # If we couldn't find the region ID directly, try an alternative approach
+            if not region_info["regionId"]:
+                alt_region_match = re.search(r'"region"\s*:\s*{\s*"id"\s*:\s*"?(\d+)"?', text_response)
+                if alt_region_match:
+                    region_info["regionId"] = alt_region_match.group(1)
+            
+            # Set a default nickname if none was found
+            if not region_info["nickname"] and region_info["regionId"]:
+                region_info["nickname"] = f"Region {region_info['regionId']}"
                 
-                # Set a default nickname if none was found
-                if not region_info["nickname"] and region_info["regionId"]:
-                    region_info["nickname"] = "Region " + str(region_info["regionId"])
-                
-                return region_info
-                
-            except Exception as e:
-                logging.error(f"Error processing response data: {str(e)}")
-                # Return a minimal response with default values
-                return {
-                    "regionId": "unknown",
-                    "nickname": "Unknown Region",
-                    "displayAddress": "Address unavailable",
-                    "postalCode": "Unknown"
-                }
-        else:
-            logging.error(f"Error response from Voila API: {response.status_code}")
-            return None
-    
-    except requests.exceptions.Timeout:
-        logging.error("Request to Voila API timed out")
-        return None
-    except requests.exceptions.RequestException as e:
-        logging.error(f"Request error: {str(e)}")
-        return None
-    except RecursionError:
-        logging.error("Recursion depth exceeded when processing region info")
-        # Return a minimal response with default values
-        return {
-            "regionId": "unknown", 
-            "nickname": "Unknown Region",
-            "displayAddress": "Address unavailable",
-            "postalCode": "Unknown"
-        }
-    except Exception as e:
-        logging.error(f"Error getting region info: {str(e)}")
-        # Return a minimal response with default values instead of None
+            return region_info
+        
+        # Return a default object if there was an error
         return {
             "regionId": "unknown",
             "nickname": "Unknown Region",
-            "displayAddress": "Address unavailable",
+            "displayAddress": "No address available",
             "postalCode": "Unknown"
         }
-        
+    
+    except requests.exceptions.Timeout:
+        print("Request to Voila API timed out")
+        return {
+            "regionId": "unknown",
+            "nickname": "Timeout Error",
+            "displayAddress": "API request timed out",
+            "postalCode": "Unknown"
+        }
+    except RecursionError:
+        print("Recursion error in get_region_info")
+        return {
+            "regionId": "unknown",
+            "nickname": "Processing Error",
+            "displayAddress": "Data too complex to process",
+            "postalCode": "Unknown"
+        }
+    except Exception as e:
+        print(f"Error getting region info: {str(e)}")
+        return {
+            "regionId": "unknown",
+            "nickname": "Error",
+            "displayAddress": str(e)[:50],  # Limit length to avoid issues
+            "postalCode": "Unknown"
+        }
+
 def parse_search_terms(search_input):
     """
     Parse search input into individual search terms.
