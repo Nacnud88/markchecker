@@ -1,0 +1,8 @@
+[build]
+  command = "pip install -r requirements.txt --target ./packages && mkdir -p netlify/functions"
+  publish = "site"
+  functions = "netlify/functions"
+
+[functions]
+  directory = "netlify/functions"
+  node_bundler = "esbuild"
