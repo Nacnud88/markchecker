@@ -8,6 +8,13 @@ import re
 import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
+import gc
+
+MAX_WORKERS = 3  # Reduced from 5 to reduce memory usage
+BATCH_SIZE = 10  # Reduced from 20 to process smaller batches
+REQUEST_TIMEOUT = 15  # Timeout for individual API requests in seconds
+GC_ENABLED = True  # Enable garbage collection between batches
+
 app = Flask(__name__, static_folder="static", template_folder="templates")
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
@@ -115,7 +122,8 @@ def fetch_product_data(product_id, session_id):
 
     headers = {
         "accept": "application/json; charset=utf-8",
-        "client-route-id": "5fa0016c-9764-4e09-9738-12c33fb47fc2"
+        "client-route-id": "5fa0016c-9764-4e09-9738-12c33fb47fc2",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
     }
 
     cookies = {
@@ -128,26 +136,28 @@ def fetch_product_data(product_id, session_id):
 
     # Add timeout to prevent hanging requests
     try:
-        response = requests.get(url, headers=headers, params=params, cookies=cookies, timeout=20)
+        response = requests.get(url, headers=headers, params=params, cookies=cookies, timeout=REQUEST_TIMEOUT)
 
         if response.status_code != 200:
             logging.warning(f"API returned status code {response.status_code} for term {product_id}")
             return None
 
-        return response.json()
+        # Parse JSON with error handling
+        try:
+            return response.json()
+        except json.JSONDecodeError as e:
+            logging.error(f"JSON decode error for term {product_id}: {str(e)}")
+            return None
+            
     except requests.exceptions.Timeout:
         logging.warning(f"Request timeout for term {product_id}")
         return None
     except requests.exceptions.RequestException as e:
         logging.error(f"Request error for term {product_id}: {str(e)}")
         return None
-    except json.JSONDecodeError as e:
-        logging.error(f"JSON decode error for term {product_id}: {str(e)}")
-        return None
     except Exception as e:
         logging.error(f"Unexpected error fetching product data for {product_id}: {str(e)}")
         return None
-
 def process_product(product):
     """Process a product from the API response"""
     if not product:
@@ -213,13 +223,104 @@ def process_product(product):
 
 def process_term(term, session_id, limit):
     """Process a single search term and return products found"""
-    products = []
-    
-    # Fetch data from Voila API
-    raw_data = fetch_product_data(term, session_id)
-    
-    if not raw_data:
-        # Return a not-found entry if we couldn't get data for this term
+    try:
+        # Fetch data from Voila API
+        raw_data = fetch_product_data(term, session_id)
+        
+        if not raw_data:
+            # Return a not-found entry if we couldn't get data for this term
+            return {
+                "found": False,
+                "searchTerm": term,
+                "productId": None,
+                "retailerProductId": None,
+                "name": f"Article Not Found: {term}",
+                "brand": None,
+                "available": False,
+                "category": "",
+                "imageUrl": None,
+                "notFoundMessage": f"The article \"{term}\" was not found. It may not be published yet or could be a typo."
+            }, 0
+        
+        # Check for product entities
+        if "entities" in raw_data and "product" in raw_data["entities"]:
+            product_entities = raw_data["entities"]["product"]
+            
+            if product_entities:
+                total_found = len(product_entities)
+                
+                # Apply limit if needed
+                if limit != 'all':
+                    try:
+                        max_items = int(limit) if isinstance(limit, str) else limit
+                        product_keys = list(product_entities.keys())[:max_items]
+                    except (ValueError, TypeError):
+                        product_keys = product_entities.keys()
+                else:
+                    product_keys = list(product_entities.keys())[:1]  # Default to just first product if all requested
+                
+                # Process only the first product to save memory
+                if product_keys:
+                    product_id = product_keys[0]
+                    product = product_entities[product_id]
+                    
+                    # Extract product details
+                    product_info = {
+                        "found": True,
+                        "searchTerm": term,  # Add search term to each product
+                        "productId": product.get("productId"),
+                        "retailerProductId": product.get("retailerProductId"),
+                        "name": product.get("name"),
+                        "brand": product.get("brand"),
+                        "available": product.get("available", False),
+                        "category": " > ".join(product.get("categoryPath", [])) if "categoryPath" in product else "",
+                        "imageUrl": product.get("image", {}).get("src"),
+                        "currency": product.get("price", {}).get("current", {}).get("currency", "CAD")
+                    }
+                    
+                    # Handle price information
+                    if "price" in product:
+                        price_info = product["price"]
+                        
+                        # Current price
+                        if "current" in price_info:
+                            product_info["currentPrice"] = price_info["current"].get("amount")
+                            
+                        # Original price
+                        if "original" in price_info:
+                            product_info["originalPrice"] = price_info["original"].get("amount")
+                            
+                            # Calculate discount percentage if both prices are available
+                            if (product_info["currentPrice"] is not None and 
+                                product_info["originalPrice"] is not None):
+                                try:
+                                    # Convert to float before calculation
+                                    current_price = float(product_info["currentPrice"])
+                                    original_price = float(product_info["originalPrice"])
+                                    
+                                    if original_price > current_price:
+                                        discount = ((original_price - current_price) / original_price * 100)
+                                        product_info["discountPercentage"] = round(discount)
+                                except (ValueError, TypeError):
+                                    # Handle cases where conversion to float fails
+                                    pass
+                                    
+                        # Unit price
+                        if "unit" in price_info:
+                            product_info["unitPrice"] = price_info["unit"].get("current", {}).get("amount")
+                            product_info["unitLabel"] = price_info["unit"].get("label")
+                            
+                    # Extract offers (limit to max 5 to save memory)
+                    if "offers" in product:
+                        offers = product.get("offers", [])
+                        product_info["offers"] = offers[:5] if offers else []
+                        
+                    if "offer" in product:
+                        product_info["primaryOffer"] = product.get("offer")
+                        
+                    return product_info, total_found
+        
+        # If we get here, no products were found
         return {
             "found": False,
             "searchTerm": term,
@@ -233,46 +334,21 @@ def process_term(term, session_id, limit):
             "notFoundMessage": f"The article \"{term}\" was not found. It may not be published yet or could be a typo."
         }, 0
     
-    # Check for product entities
-    if "entities" in raw_data and "product" in raw_data["entities"]:
-        product_entities = raw_data["entities"]["product"]
-        
-        if product_entities:
-            total_found = len(product_entities)
-            
-            # Apply limit if needed
-            if limit != 'all':
-                try:
-                    max_items = int(limit) if isinstance(limit, str) else limit
-                    product_keys = list(product_entities.keys())[:max_items]
-                except (ValueError, TypeError):
-                    product_keys = product_entities.keys()
-            else:
-                product_keys = product_entities.keys()
-            
-            # Process each product
-            for product_id in product_keys:
-                product = product_entities[product_id]
-                
-                # Extract product details
-                product_info = process_product(product)
-                if product_info:
-                    product_info["searchTerm"] = term  # Add search term to the product
-                    return product_info, total_found
-    
-    # If we get here, no products were found
-    return {
-        "found": False,
-        "searchTerm": term,
-        "productId": None,
-        "retailerProductId": None,
-        "name": f"Article Not Found: {term}",
-        "brand": None,
-        "available": False,
-        "category": "",
-        "imageUrl": None,
-        "notFoundMessage": f"The article \"{term}\" was not found. It may not be published yet or could be a typo."
-    }, 0
+    except Exception as e:
+        logging.error(f"Error processing term {term}: {str(e)}")
+        # Return error as not found product
+        return {
+            "found": False,
+            "searchTerm": term,
+            "productId": None,
+            "retailerProductId": None,
+            "name": f"Article Not Found: {term}",
+            "brand": None,
+            "available": False,
+            "category": "",
+            "imageUrl": None,
+            "notFoundMessage": f"Error processing the article. Please try again."
+        }, 0
 
 @app.route('/api/fetch-product', methods=['POST'])
 def fetch_product():
@@ -327,41 +403,43 @@ def fetch_product():
                     total_batches
                 )
                 
-                # Process terms in batches
+                # Flag to track if we've written the first product
+                first_product = True
+                
+                # Process terms in smaller batches to avoid memory issues
                 for i in range(0, len(individual_terms), BATCH_SIZE):
                     batch_count += 1
                     batch_terms = individual_terms[i:i+BATCH_SIZE]
                     logging.info(f"Processing batch {batch_count}/{total_batches} with {len(batch_terms)} terms")
                     
-                    # Process batch with ThreadPoolExecutor
+                    # Reduce number of concurrent threads for API requests
+                    batch_workers = min(MAX_WORKERS, len(batch_terms))
                     batch_products = []
                     batch_total_found = 0
                     
-                    with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
-                        future_to_term = {
-                            executor.submit(process_term, term, session_id, limit): term
-                            for term in batch_terms
-                        }
+                    with ThreadPoolExecutor(max_workers=batch_workers) as executor:
+                        # Create a dictionary mapping futures to their corresponding terms
+                        futures = {executor.submit(process_term, term, session_id, limit): term for term in batch_terms}
                         
-                        for i, future in enumerate(as_completed(future_to_term)):
-                            term = future_to_term[future]
+                        # Process futures as they complete
+                        for future in as_completed(futures):
+                            term = futures[future]
                             processed_count += 1
                             
                             try:
                                 product_info, term_total_found = future.result()
-                                batch_total_found += term_total_found
-                                
-                                # Add comma if not the first product
-                                if products or batch_products:
-                                    yield ','
-                                
-                                # Yield the product as JSON
-                                yield json.dumps(product_info)
-                                batch_products.append(product_info)
-                                
-                                # Add progress update comment for debugging
-                                # yield f"/* Processed {processed_count}/{len(individual_terms)} terms */"
-                                
+                                if product_info:  # Only process if we have a valid product info
+                                    batch_total_found += term_total_found
+                                    
+                                    # Add comma if not the first product
+                                    if not first_product:
+                                        yield ','
+                                    first_product = False
+                                    
+                                    # Yield the product as JSON
+                                    yield json.dumps(product_info)
+                                    batch_products.append(product_info)
+                                    
                             except Exception as e:
                                 logging.error(f"Error processing term {term}: {str(e)}")
                                 # Add not found entry for failed term
@@ -375,22 +453,32 @@ def fetch_product():
                                     "available": False,
                                     "category": "",
                                     "imageUrl": None,
-                                    "notFoundMessage": f"Error processing the article \"{term}\". Please try again."
+                                    "notFoundMessage": f"The article \"{term}\" was not found. It may not be published yet or could be a typo."
                                 }
                                 
                                 # Add comma if not the first product
-                                if products or batch_products:
+                                if not first_product:
                                     yield ','
+                                first_product = False
                                 
                                 # Yield the not-found entry
                                 yield json.dumps(not_found_entry)
                                 batch_products.append(not_found_entry)
                     
-                    # Add batch products to overall products list
-                    products.extend(batch_products)
-                    total_found += batch_total_found
+                    # Run garbage collection after each batch to free memory
+                    if GC_ENABLED:
+                        collected = gc.collect()
+                        logging.debug(f"Garbage collection: {collected} objects collected")
                     
-                    # Slight delay between batches to prevent overloading
+                    # Add batch products to overall count but don't keep them in memory
+                    # Just track the statistics to avoid large memory usage
+                    total_found += batch_total_found
+                    products_count = len(products) + len(batch_products)
+                    
+                    # After processing the batch, clear the references to free memory
+                    batch_products.clear()
+                    
+                    # Slight delay between batches to prevent overwhelming the system
                     time.sleep(0.5)
                 
                 # Complete the JSON response
@@ -407,7 +495,7 @@ def fetch_product():
         total_found = 0
         not_found_terms = []
         
-        with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+        with ThreadPoolExecutor(max_workers=min(MAX_WORKERS, len(individual_terms))) as executor:
             future_to_term = {
                 executor.submit(process_term, term, session_id, limit): term
                 for term in individual_terms
@@ -418,11 +506,12 @@ def fetch_product():
                 
                 try:
                     product_info, term_total_found = future.result()
-                    products.append(product_info)
-                    total_found += term_total_found
-                    
-                    if not product_info.get("found", False):
-                        not_found_terms.append(term)
+                    if product_info:
+                        products.append(product_info)
+                        total_found += term_total_found
+                        
+                        if not product_info.get("found", False):
+                            not_found_terms.append(term)
                         
                 except Exception as e:
                     logging.error(f"Error processing term {term}: {str(e)}")
@@ -464,6 +553,7 @@ def fetch_product():
             "error": str(e),
             "status": "error"
         }), 500
+
 
 @app.route('/api/auto-scrape', methods=['POST'])
 def auto_scrape():
