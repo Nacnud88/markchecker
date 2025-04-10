@@ -4,6 +4,7 @@ import traceback
 import json
 import time
 import random
+import re  # Import for regex pattern matching
 
 app = Flask(__name__, static_folder="static", template_folder="templates")
 
@@ -55,6 +56,36 @@ def get_region_info(session_id):
         print(f"Error getting region info: {str(e)}")
         return None
 
+def parse_search_terms(search_input):
+    """
+    Parse search input into individual search terms.
+    Handles comma-separated, newline-separated, and space-separated inputs.
+    Also handles EA-code pattern recognition.
+    """
+    # First try comma or newline separation
+    terms = []
+    if ',' in search_input or '\n' in search_input:
+        # Split by commas and newlines
+        terms = re.split(r'[,\n]', search_input)
+    else:
+        # Check for EA product codes pattern
+        ea_codes = re.findall(r'\b\d+EA\b', search_input)
+        if ea_codes:
+            # If we found EA codes, use them
+            terms = ea_codes
+        else:
+            # Otherwise, try splitting by spaces if the input is particularly long
+            if len(search_input) > 50 and ' ' in search_input:
+                terms = search_input.split()
+            else:
+                # Use the entire input as a single term
+                terms = [search_input]
+    
+    # Clean up terms
+    terms = [term.strip() for term in terms if term.strip()]
+    
+    return terms
+
 @app.route('/api/fetch-product', methods=['POST'])
 def fetch_product():
     """API endpoint for product searches with user-provided session ID"""
@@ -83,8 +114,10 @@ def fetch_product():
         # Extract region name (use nickname or default to ID)
         region_name = region_info.get("nickname") or "Unknown Region"
         
-        # Parse search terms (split by commas or new lines)
-        individual_terms = search_term.split(',')
+        # Parse search terms using the enhanced parser
+        individual_terms = parse_search_terms(search_term)
+        
+        print(f"Parsed {len(individual_terms)} individual search terms")
         
         # Handle individual search terms
         products = []
@@ -206,6 +239,7 @@ def fetch_product():
             "region_name": region_name,
             "region_info": region_info,  # Include detailed region info
             "search_term": search_term,
+            "parsed_terms": individual_terms,  # Include the parsed terms for debugging
             "total_found": total_found,
             "not_found_terms": not_found_terms,
             "products": products
