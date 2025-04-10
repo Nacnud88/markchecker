@@ -283,6 +283,32 @@
             font-weight: 600;
         }
 
+        .parsed-terms {
+            background-color: #e9ecef;
+            padding: 10px 15px;
+            margin-bottom: 15px;
+            border-radius: 5px;
+            border-left: 4px solid var(--voila-muted-teal);
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .parsed-terms h6 {
+            color: var(--voila-dark-green);
+            margin-bottom: 10px;
+        }
+
+        .parsed-terms ul {
+            margin-bottom: 0;
+            padding-left: 20px;
+        }
+
+        .parsed-terms-toggle {
+            cursor: pointer;
+            color: var(--voila-muted-teal);
+            text-decoration: underline;
+        }
+
         /* Mobile Responsiveness */
         @media (max-width: 767.98px) {
             .card-header {
@@ -327,7 +353,7 @@
             <p>This tool allows you to search for multiple products on Voila.ca using your personal session ID.</p>
             <ol>
                 <li>Enter your Voila.ca session ID in the field below</li>
-                <li>Enter search terms or product IDs to find products (separate multiple terms with commas or new lines)</li>
+                <li>Enter search terms or product IDs to find products (separate multiple terms with commas, new lines, or spaces)</li>
                 <li>View the product details and prices</li>
             </ol>
 
@@ -345,6 +371,16 @@
             <div class="alert alert-info">
                 <strong>Note:</strong> To change regions, you need to log in to your Voila account, book a slot in the desired region, 
                 perform a search in that region, then extract the new session ID.
+            </div>
+            
+            <div class="alert alert-info">
+                <strong>Product Codes:</strong> The system can recognize product codes in various formats:
+                <ul>
+                    <li>Multiple product codes separated by commas: <code>123456EA, 789012EA</code></li>
+                    <li>Multiple product codes separated by new lines (one per line)</li>
+                    <li>Multiple product codes separated by spaces: <code>123456EA 789012EA</code></li>
+                    <li>A continuous list of product codes ending with EA: <code>123456EA789012EA</code> (these will be automatically parsed)</li>
+                </ul>
             </div>
         </div>
 
@@ -365,8 +401,8 @@
 
             <!-- Search Form -->
             <div class="mb-3">
-                <label for="searchTerms" class="form-label">Search Terms (separate multiple terms with commas or new lines):</label>
-                <textarea class="form-control" id="searchTerms" rows="3" placeholder="Enter product names or IDs, one per line or comma-separated"></textarea>
+                <label for="searchTerms" class="form-label">Search Terms (separate multiple terms with commas, new lines, or spaces):</label>
+                <textarea class="form-control" id="searchTerms" rows="6" placeholder="Enter product names or IDs (comma, new line, or space separated)"></textarea>
             </div>
             <div class="mb-3">
                 <label for="resultLimit" class="form-label">Result Limit per Search Term:</label>
@@ -396,6 +432,15 @@
                 <span id="resultStats" class="badge bg-light text-dark"></span>
             </div>
             <div class="card-body">
+                <!-- Parsed Terms Section (Initially Hidden) -->
+                <div id="parsedTermsSection" class="parsed-terms" style="display: none;">
+                    <div class="d-flex justify-content-between">
+                        <h6>Parsed Search Terms</h6>
+                        <span id="hideTermsToggle" class="parsed-terms-toggle">Hide</span>
+                    </div>
+                    <div id="parsedTermsList"></div>
+                </div>
+                
                 <div id="resultsContainer" class="row"></div>
             </div>
         </div>
@@ -415,6 +460,9 @@
             const searchResultsTitle = document.getElementById('searchResultsTitle');
             const regionInfoBanner = document.getElementById('regionInfoBanner');
             const regionText = document.getElementById('regionText');
+            const parsedTermsSection = document.getElementById('parsedTermsSection');
+            const parsedTermsList = document.getElementById('parsedTermsList');
+            const hideTermsToggle = document.getElementById('hideTermsToggle');
 
             // Store results for export
             let allSearchResults = [];
@@ -422,10 +470,23 @@
             let displayedProducts = 0;
             let notFoundProducts = 0;
             let currentRegionInfo = null;
+            let parsedTerms = [];
 
             // Set up event listeners
             searchButton.addEventListener('click', searchProducts);
             exportButton.addEventListener('click', exportToExcel);
+            
+            // Toggle for parsed terms section
+            hideTermsToggle.addEventListener('click', function() {
+                const termsListDiv = parsedTermsList;
+                if (termsListDiv.style.display === 'none') {
+                    termsListDiv.style.display = 'block';
+                    this.textContent = 'Hide';
+                } else {
+                    termsListDiv.style.display = 'none';
+                    this.textContent = 'Show';
+                }
+            });
 
             // Add event listener to check region info when session ID changes
             document.getElementById('sessionId').addEventListener('blur', checkRegionInfo);
@@ -504,6 +565,19 @@
                 });
             }
 
+            // Helper function to recognize EA product code pattern
+            function parseEACodes(input) {
+                // This will parse out sequences like "123456EA789012EA" into individual codes
+                if (input && input.includes('EA')) {
+                    // Use regex to find all patterns of digits followed by "EA"
+                    const matches = input.match(/\d+EA/g);
+                    if (matches && matches.length > 1) {
+                        return matches;
+                    }
+                }
+                return [input]; // Return original if no EA pattern found
+            }
+
             function searchProducts() {
                 const sessionId = document.getElementById('sessionId').value.trim();
                 const searchTermsInput = document.getElementById('searchTerms').value.trim();
@@ -520,28 +594,19 @@
                     return;
                 }
 
-                // Parse search terms (split by commas or new lines)
-                const searchTerms = searchTermsInput
-                    .split(/[\n,]/)
-                    .map(term => term.trim())
-                    .filter(term => term.length > 0);
-
-                if (searchTerms.length === 0) {
-                    alert('Please enter at least one valid search term');
-                    return;
-                }
-
                 // Show loading spinner
                 loadingSpinner.style.display = 'block';
                 resultsContainer.innerHTML = '';
                 searchInfo.style.display = 'none';
                 exportButton.style.display = 'none';
+                parsedTermsSection.style.display = 'none';
 
                 // Reset results
                 allSearchResults = [];
                 totalFoundProducts = 0;
                 displayedProducts = 0;
                 notFoundProducts = 0;
+                parsedTerms = [];
 
                 // Make API request with all search terms at once
                 const payload = {
@@ -587,6 +652,25 @@
                                 Postal Code: ${postalCode}
                             </div>
                         `;
+                    }
+
+                    // Display parsed terms if available
+                    if (data.parsed_terms && data.parsed_terms.length > 0) {
+                        parsedTerms = data.parsed_terms;
+                        
+                        // Show the parsed terms section
+                        parsedTermsSection.style.display = 'block';
+                        parsedTermsList.innerHTML = '';
+                        
+                        // Create the list of parsed terms
+                        const termsList = document.createElement('ul');
+                        parsedTerms.forEach(term => {
+                            const listItem = document.createElement('li');
+                            listItem.textContent = term;
+                            termsList.appendChild(listItem);
+                        });
+                        
+                        parsedTermsList.appendChild(termsList);
                     }
 
                     // Count found and not found products
