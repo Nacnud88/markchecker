@@ -395,11 +395,12 @@ def process_term(term, session_id, limit):
                         max_items = int(limit) if isinstance(limit, str) else limit
                         product_keys = list(product_entities.keys())[:max_items]
                     except (ValueError, TypeError):
-                        product_keys = product_entities.keys()
+                        product_keys = list(product_entities.keys())
                 else:
-                    product_keys = list(product_entities.keys())[:1]  # Default to just first product if all requested
+                    # For 'all', return all products up to a reasonable maximum (50)
+                    product_keys = list(product_entities.keys())[:50]
                 
-                # Process only the first product to save memory
+                # Process first product for return
                 if product_keys:
                     product_id = product_keys[0]
                     product = product_entities[product_id]
@@ -416,7 +417,9 @@ def process_term(term, session_id, limit):
                             "brand": product.get("brand"),
                             "available": product.get("available", False),
                             "imageUrl": None,
-                            "currency": "CAD"
+                            "currency": "CAD",
+                            "multipleResults": len(product_keys) > 1,
+                            "totalResults": total_found
                         }
                         
                         # Safely extract image URL
@@ -470,6 +473,39 @@ def process_term(term, session_id, limit):
                             
                         if "offer" in product:
                             product_info["primaryOffer"] = product.get("offer")
+                        
+                        # Process additional products for generic search terms
+                        if len(product_keys) > 1 and not term.endswith("EA"): 
+                            # Only include additional products for generic searches, not EA codes
+                            product_info["additionalProducts"] = []
+                            
+                            # Process up to the limit or 20 max additional products
+                            max_additional = min(len(product_keys) - 1, 19)  # -1 for the first product already processed
+                            
+                            for i in range(1, max_additional + 1):
+                                add_id = product_keys[i]
+                                add_product = product_entities[add_id]
+                                
+                                # Create a simplified version of the additional product
+                                additional_product = {
+                                    "productId": add_product.get("productId"),
+                                    "retailerProductId": add_product.get("retailerProductId"),
+                                    "name": add_product.get("name"),
+                                    "brand": add_product.get("brand"),
+                                    "available": add_product.get("available", False)
+                                }
+                                
+                                # Add price information if available
+                                if "price" in add_product and isinstance(add_product["price"], dict):
+                                    price_info = add_product["price"]
+                                    if "current" in price_info and isinstance(price_info["current"], dict):
+                                        additional_product["currentPrice"] = price_info["current"].get("amount")
+                                
+                                # Add image if available
+                                if "image" in add_product and isinstance(add_product["image"], dict):
+                                    additional_product["imageUrl"] = add_product["image"].get("src")
+                                
+                                product_info["additionalProducts"].append(additional_product)
                     
                         return product_info, total_found
                     except RecursionError:
@@ -531,7 +567,7 @@ def process_term(term, session_id, limit):
             "imageUrl": None,
             "notFoundMessage": f"Error processing the article. Please try again."
         }, 0
-
+        
 @app.route('/api/fetch-product', methods=['POST'])
 def fetch_product():
     """API endpoint for product searches with user-provided session ID"""
