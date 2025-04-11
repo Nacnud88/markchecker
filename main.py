@@ -61,41 +61,31 @@ def get_region_info(session_id):
                 "postalCode": None
             }
             
-            # Using more robust regex patterns with word boundaries and cautious matching
-            # Extract region ID - try multiple patterns
+            # Extract region ID
             region_id_match = re.search(r'"regionId"\s*:\s*"?(\d+)"?', text_response)
             if region_id_match:
                 region_info["regionId"] = region_id_match.group(1)
                 
-            # Extract nickname - be cautious about quotes and escaping
-            nickname_match = re.search(r'"nickname"\s*:\s*"([^"\\]*(?:\\.[^"\\]*)*)"', text_response)
+            # Extract nickname
+            nickname_match = re.search(r'"nickname"\s*:\s*"([^"]+)"', text_response)
             if nickname_match:
-                # Handle possible escaped characters
-                nickname = nickname_match.group(1).replace('\\"', '"').replace('\\\\', '\\')
-                region_info["nickname"] = nickname
+                region_info["nickname"] = nickname_match.group(1)
                 
-            # Extract display address with improved handling of special characters
-            addr_match = re.search(r'"displayAddress"\s*:\s*"([^"\\]*(?:\\.[^"\\]*)*)"', text_response)
+            # Extract display address
+            addr_match = re.search(r'"displayAddress"\s*:\s*"([^"]+)"', text_response)
             if addr_match:
-                address = addr_match.group(1).replace('\\"', '"').replace('\\\\', '\\')
-                region_info["displayAddress"] = address
+                region_info["displayAddress"] = addr_match.group(1)
                 
-            # Extract postal code with better pattern
-            postal_match = re.search(r'"postalCode"\s*:\s*"([A-Za-z0-9\s-]+)"', text_response)
+            # Extract postal code
+            postal_match = re.search(r'"postalCode"\s*:\s*"([^"]+)"', text_response)
             if postal_match:
                 region_info["postalCode"] = postal_match.group(1)
                 
-            # If we couldn't find the region ID directly, try alternative approaches
+            # If we couldn't find the region ID directly, try an alternative approach
             if not region_info["regionId"]:
-                # Try looking in the region object
                 alt_region_match = re.search(r'"region"\s*:\s*{\s*"id"\s*:\s*"?(\d+)"?', text_response)
                 if alt_region_match:
                     region_info["regionId"] = alt_region_match.group(1)
-                
-                # Try another pattern that might be used
-                alt_region_match2 = re.search(r'"regionId"\s*:\s*(\d+)', text_response)
-                if alt_region_match2:
-                    region_info["regionId"] = alt_region_match2.group(1)
             
             # Set a default nickname if none was found
             if not region_info["nickname"] and region_info["regionId"]:
@@ -135,6 +125,7 @@ def get_region_info(session_id):
             "displayAddress": str(e)[:50],  # Limit length to avoid issues
             "postalCode": "Unknown"
         }
+        
 def parse_search_terms(search_input):
     """
     Parse search input into individual search terms.
