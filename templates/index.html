@@ -1508,101 +1508,167 @@
             searchTerms.focus();
         }
 
+        // Function to handle streaming response for large requests
         function handleStreamingResponse(reader, decoder, buffer = "") {
-    return reader.read().then(({ done, value }) => {
-        if (done) {
-            console.log("Stream complete");
-            if (buffer.length > 0) {
-                try {
-                    const jsonData = JSON.parse(buffer);
-                    processResults(jsonData);
-                } catch (e) {
-                    console.error("Error parsing final buffer:", e);
-                    console.error("Buffer content:", buffer);
-                }
-            }
-            
-            // Hide loading spinner when done
-            loadingSpinner.style.display = 'none';
-            
-            // Update progress bar
-            updateProgress(100, "Processing complete!", null, true);
-            setTimeout(() => {
-                progressContainer.style.display = 'none';
-            }, 2000);
-            
-            isProcessingLargeRequest = false;
-            streamingResponse = null;
-            return;
-        }
-        
-        // Decode the current chunk
-        const chunk = decoder.decode(value, { stream: true });
-        buffer += chunk;
-        
-        // Look for special progress update markers - these contain product data
-        const progressUpdateIndex = buffer.indexOf('"progress_update": true');
-        if (progressUpdateIndex > 0) {
-            try {
-                // Find JSON object boundaries by counting braces
-                let openBraces = 0;
-                let startPos = 0;
-                let endPos = 0;
-                
-                // Find the opening brace for this object
-                for (let i = progressUpdateIndex; i >= 0; i--) {
-                    if (buffer[i] === '{') {
-                        startPos = i;
-                        break;
-                    }
-                }
-                
-                // Count braces to find the corresponding closing brace
-                for (let i = startPos; i < buffer.length; i++) {
-                    if (buffer[i] === '{') openBraces++;
-                    if (buffer[i] === '}') {
-                        openBraces--;
-                        if (openBraces === 0) {
-                            endPos = i + 1;
-                            break;
+            return reader.read().then(({ done, value }) => {
+                if (done) {
+                    console.log("Stream complete");
+                    if (buffer.length > 0) {
+                        try {
+                            const jsonData = JSON.parse(buffer);
+                            processResults(jsonData);
+                        } catch (e) {
+                            console.error("Error parsing final buffer:", e);
+                            console.error("Buffer content:", buffer);
                         }
                     }
+                    
+                    // Hide loading spinner when done
+                    loadingSpinner.style.display = 'none';
+                    
+                    // Update progress bar
+                    updateProgress(100, "Processing complete!", null, true);
+                    setTimeout(() => {
+                        progressContainer.style.display = 'none';
+                    }, 2000);
+                    
+                    isProcessingLargeRequest = false;
+                    streamingResponse = null;
+                    return;
                 }
                 
-                // If we found a complete progress update object
-                if (endPos > startPos) {
-                    const progressData = JSON.parse(buffer.substring(startPos, endPos));
-                    
-                    // Process the progress update
-                    processStreamingUpdate(progressData);
-                    
-                    // Remove the processed portion from buffer
-                    buffer = buffer.substring(endPos);
+                // Decode the current chunk
+                const chunk = decoder.decode(value, { stream: true });
+                buffer += chunk;
+                
+                // Look for special progress update markers - these contain product data
+                const progressUpdateIndex = buffer.indexOf('"progress_update": true');
+                if (progressUpdateIndex > 0) {
+                    try {
+                        // Find JSON object boundaries by counting braces
+                        let openBraces = 0;
+                        let startPos = 0;
+                        let endPos = 0;
+                        
+                        // Find the opening brace for this object
+                        for (let i = progressUpdateIndex; i >= 0; i--) {
+                            if (buffer[i] === '{') {
+                                startPos = i;
+                                break;
+                            }
+                        }
+                        
+                        // Count braces to find the corresponding closing brace
+                        for (let i = startPos; i < buffer.length; i++) {
+                            if (buffer[i] === '{') openBraces++;
+                            if (buffer[i] === '}') {
+                                openBraces--;
+                                if (openBraces === 0) {
+                                    endPos = i + 1;
+                                    break;
+                                }
+                            }
+                        }
+                        
+                        // If we found a complete progress update object
+                        if (endPos > startPos) {
+                            const progressData = JSON.parse(buffer.substring(startPos, endPos));
+                            
+                            // Process the progress update
+                            processStreamingUpdate(progressData);
+                            
+                            // Remove the processed portion from buffer
+                            buffer = buffer.substring(endPos);
+                        }
+                    } catch (e) {
+                        console.error("Error processing progress update:", e);
+                        // Continue processing - don't clear buffer here as it might contain partial data
+                    }
                 }
-            } catch (e) {
-                console.error("Error processing progress update:", e);
-                // Continue processing - don't clear buffer here as it might contain partial data
-            }
+                
+                // Also try to parse the whole buffer as regular JSON when complete
+                if (buffer.includes('"status": "completed"')) {
+                    try {
+                        // Try to parse the buffer as JSON
+                        const jsonData = JSON.parse(buffer);
+                        // If we get here, it's valid JSON
+                        processResults(jsonData);
+                        buffer = "";
+                    } catch (e) {
+                        // Not valid JSON yet, continue accumulating
+                        // Nothing to do, just continue
+                    }
+                }
+                
+                // Continue reading
+                return handleStreamingResponse(reader, decoder, buffer);
+            });
         }
         
-        // Also try to parse the whole buffer as regular JSON when complete
-        if (buffer.includes('"status": "completed"')) {
-            try {
-                // Try to parse the buffer as JSON
-                const jsonData = JSON.parse(buffer);
-                // If we get here, it's valid JSON
-                processResults(jsonData);
-                buffer = "";
-            } catch (e) {
-                // Not valid JSON yet, continue accumulating
-                // Nothing to do, just continue
+        // Enhanced streaming handling
+        function processStreamingUpdate(progressData) {
+            // Update progress based on batch information
+            const percentComplete = progressData.progress_percent || 
+                (progressData.processed / progressData.total * 100);
+            
+            // Create a richer status message
+            let statusMsg = progressData.batch_current ? 
+                `Processing batch ${progressData.batch_current} of ${progressData.batch_total}` : 
+                `Processing ${progressData.processed} of ${progressData.total} items`;
+            
+            // Update progress metrics
+            progressProcessed.textContent = progressData.processed || 0;
+            progressTotal.textContent = progressData.total || 0;
+            progressFound.textContent = progressData.found || 0;
+            progressNotFound.textContent = progressData.processed - progressData.found || 0;
+            
+            // Create current item info
+            const currentItem = {
+                searchTerm: progressData.current_term || 
+                          (progressData.current_batch_terms ? progressData.current_batch_terms[0] : "Current batch"),
+                batchCurrent: progressData.batch_current,
+                batchTotal: progressData.batch_total
+            };
+            
+            // Update the progress UI
+            updateProgress(
+                percentComplete,
+                statusMsg,
+                currentItem,
+                false
+            );
+            
+            // Update batch progress if available
+            if (progressData.batch_current && progressData.batch_total) {
+                updateBatchProgress(progressData.batch_current, progressData.batch_total);
+            }
+            
+            // If products were received, add them to the results
+            if (progressData.products && progressData.products.length) {
+                console.log(`Processing ${progressData.products.length} products from stream update`);
+                
+                // Merge products with existing results
+                allSearchResults = allSearchResults.concat(progressData.products);
+                
+                // Update counters
+                const foundProducts = progressData.products.filter(p => p.found === true);
+                const notFoundProds = progressData.products.filter(p => p.found === false);
+                
+                totalFoundProducts = progressData.found || (totalFoundProducts + foundProducts.length);
+                notFoundProducts = (progressData.processed - progressData.found) || (notFoundProducts + notFoundProds.length);
+                displayedProducts = allSearchResults.length;
+                
+                // Display new products incrementally
+                displayResults(progressData.products, resultsContainer);
+                
+                // Show results section and update stats
+                showResultsSection();
+                
+                // Also update filter controls visibility
+                filterControls.style.display = 'block';
             }
         }
-        
-        // Continue reading
-        return handleStreamingResponse(reader, decoder, buffer);
-    });
-}
+
         // Function to calculate estimated time remaining
         function calculateTimeRemaining(percentComplete) {
             const now = Date.now();
@@ -2303,8 +2369,10 @@
 
         function displayResults(products, containerElement) {
             if (!products || products.length === 0) {
-                containerElement.innerHTML = '<div class="col-12 text-center mt-4"><div class="alert alert-info">' +
-                    '<i class="fas fa-info-circle me-2"></i>No products found. Try different search terms.</div></div>';
+                if (!isProcessingLargeRequest) {
+                    containerElement.innerHTML = '<div class="col-12 text-center mt-4"><div class="alert alert-info">' +
+                        '<i class="fas fa-info-circle me-2"></i>No products found. Try different search terms.</div></div>';
+                }
                 return;
             }
 
@@ -2313,14 +2381,22 @@
                 containerElement.innerHTML = '';
             }
 
+            console.log(`Displaying ${products.length} products`);
+
             // Separate found and not found products
             const foundProducts = products.filter(product => product.found === true);
             const notFoundProducts = products.filter(product => product.found === false);
 
+            console.log(`Found products: ${foundProducts.length}, Not found: ${notFoundProducts.length}`);
+
             // Display found products first
             foundProducts.forEach(product => {
+                // Create a unique ID for this product
+                const productId = product.retailerProductId || product.productId || product.searchTerm;
+                const elementId = `product-${productId}`;
+                
                 // Only add if this product isn't already displayed
-                if (!document.getElementById(`product-${product.retailerProductId || product.productId || product.searchTerm}`)) {
+                if (!document.getElementById(elementId)) {
                     const productCard = createProductCard(product);
                     containerElement.appendChild(productCard);
                 }
@@ -2328,8 +2404,11 @@
 
             // Then display not found products
             notFoundProducts.forEach(product => {
+                // Create a unique ID for this not found product
+                const elementId = `not-found-${product.searchTerm}`;
+                
                 // Only add if this product isn't already displayed
-                if (!document.getElementById(`not-found-${product.searchTerm}`)) {
+                if (!document.getElementById(elementId)) {
                     const notFoundCard = createNotFoundCard(product);
                     containerElement.appendChild(notFoundCard);
                 }
