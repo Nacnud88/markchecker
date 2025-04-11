@@ -1376,7 +1376,7 @@
             // Show results section
             showResultsSection();
 
-            // Display products
+            // Display products 
             displayResults(allSearchResults, resultsContainer);
             
             // Apply default filter (show all)
@@ -1705,6 +1705,7 @@
             });
         }
 
+        // FIXED: Display function to properly handle all products
         function displayResults(products, containerElement) {
             if (!products || products.length === 0) {
                 containerElement.innerHTML = '<div class="col-12 text-center mt-4"><div class="alert alert-info">' +
@@ -1712,8 +1713,8 @@
                 return;
             }
 
+            // Always clear the container first
             containerElement.innerHTML = '';
-
             console.log(`Displaying ${products.length} products`);
 
             // Separate found and not found products
@@ -1738,8 +1739,11 @@
         function createProductCard(product) {
             const productCard = document.createElement('div');
             productCard.className = 'col-md-4 col-lg-3 mb-4';
-            productCard.id = `product-${product.retailerProductId || product.productId || product.searchTerm}`;
-
+            
+            // Ensure we have a unique ID for each product
+            const uniqueId = product.retailerProductId || product.productId || product.searchTerm;
+            productCard.id = `product-${uniqueId}-${Math.random().toString(36).substring(2, 10)}`; // Add random suffix for uniqueness
+            
             // Format price display - Handle non-number values
             let priceDisplay = '';
             let discountBadge = '';
@@ -1849,7 +1853,9 @@
         function createNotFoundCard(product) {
             const notFoundCard = document.createElement('div');
             notFoundCard.className = 'col-md-4 col-lg-3 mb-4';
-            notFoundCard.id = `not-found-${product.searchTerm}`;
+            
+            // Create a unique ID with a random suffix
+            notFoundCard.id = `not-found-${product.searchTerm}-${Math.random().toString(36).substring(2, 10)}`;
 
             // Add search term badge if available
             const searchTermBadge = product.searchTerm 
@@ -1902,11 +1908,11 @@
                             const productCard = col.querySelector('.product-card');
                             if (productCard.classList.contains('not-found-card')) {
                                 // Not found products - get searchTerm
-                                const searchTerm = col.id.replace('not-found-', '');
+                                const searchTerm = col.id.replace(/not-found-([^-]+)-.*/, '$1');
                                 return { type: 'notFound', term: searchTerm };
                             } else {
                                 // Found products - get ID
-                                const id = col.id.replace('product-', '');
+                                const id = col.id.replace(/product-([^-]+)-.*/, '$1');
                                 return { type: 'found', id: id };
                             }
                         });
