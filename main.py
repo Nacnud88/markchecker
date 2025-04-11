@@ -61,31 +61,41 @@ def get_region_info(session_id):
                 "postalCode": None
             }
             
-            # Extract region ID
+            # Using more robust regex patterns with word boundaries and cautious matching
+            # Extract region ID - try multiple patterns
             region_id_match = re.search(r'"regionId"\s*:\s*"?(\d+)"?', text_response)
             if region_id_match:
                 region_info["regionId"] = region_id_match.group(1)
                 
-            # Extract nickname
-            nickname_match = re.search(r'"nickname"\s*:\s*"([^"]+)"', text_response)
+            # Extract nickname - be cautious about quotes and escaping
+            nickname_match = re.search(r'"nickname"\s*:\s*"([^"\\]*(?:\\.[^"\\]*)*)"', text_response)
             if nickname_match:
-                region_info["nickname"] = nickname_match.group(1)
+                # Handle possible escaped characters
+                nickname = nickname_match.group(1).replace('\\"', '"').replace('\\\\', '\\')
+                region_info["nickname"] = nickname
                 
-            # Extract display address
-            addr_match = re.search(r'"displayAddress"\s*:\s*"([^"]+)"', text_response)
+            # Extract display address with improved handling of special characters
+            addr_match = re.search(r'"displayAddress"\s*:\s*"([^"\\]*(?:\\.[^"\\]*)*)"', text_response)
             if addr_match:
-                region_info["displayAddress"] = addr_match.group(1)
+                address = addr_match.group(1).replace('\\"', '"').replace('\\\\', '\\')
+                region_info["displayAddress"] = address
                 
-            # Extract postal code
-            postal_match = re.search(r'"postalCode"\s*:\s*"([^"]+)"', text_response)
+            # Extract postal code with better pattern
+            postal_match = re.search(r'"postalCode"\s*:\s*"([A-Za-z0-9\s-]+)"', text_response)
             if postal_match:
                 region_info["postalCode"] = postal_match.group(1)
                 
-            # If we couldn't find the region ID directly, try an alternative approach
+            # If we couldn't find the region ID directly, try alternative approaches
             if not region_info["regionId"]:
+                # Try looking in the region object
                 alt_region_match = re.search(r'"region"\s*:\s*{\s*"id"\s*:\s*"?(\d+)"?', text_response)
                 if alt_region_match:
                     region_info["regionId"] = alt_region_match.group(1)
+                
+                # Try another pattern that might be used
+                alt_region_match2 = re.search(r'"regionId"\s*:\s*(\d+)', text_response)
+                if alt_region_match2:
+                    region_info["regionId"] = alt_region_match2.group(1)
             
             # Set a default nickname if none was found
             if not region_info["nickname"] and region_info["regionId"]:
@@ -125,7 +135,6 @@ def get_region_info(session_id):
             "displayAddress": str(e)[:50],  # Limit length to avoid issues
             "postalCode": "Unknown"
         }
-
 def parse_search_terms(search_input):
     """
     Parse search input into individual search terms.
@@ -309,6 +318,7 @@ def fetch_product_data(product_id, session_id):
         print(f"Unexpected error fetching product data for {product_id}: {str(e)}")
         return None
 
+
 def extract_product_fields(product_json, product_id):
     """Extract essential product fields using regex when JSON parsing fails"""
     try:
@@ -331,40 +341,109 @@ def extract_product_fields(product_json, product_id):
             }
         }
         
-        # Extract retailerProductId
-        retailer_id_match = re.search(r'"retailerProductId"\s*:\s*"([^"]+)"', product_json)
+        # Extract retailerProductId - be careful with quotes and special characters
+        retailer_id_match = re.search(r'"retailerProductId"\s*:\s*"([^"\\]*(?:\\.[^"\\]*)*)"', product_json)
         if retailer_id_match:
-            product["retailerProductId"] = retailer_id_match.group(1)
+            product["retailerProductId"] = retailer_id_match.group(1).replace('\\"', '"')
         
-        # Extract name
-        name_match = re.search(r'"name"\s*:\s*"([^"]+)"', product_json)
+        # Extract name with better handling of escaped quotes and special characters
+        name_match = re.search(r'"name"\s*:\s*"([^"\\]*(?:\\.[^"\\]*)*)"', product_json)
         if name_match:
-            product["name"] = name_match.group(1)
+            product["name"] = name_match.group(1).replace('\\"', '"').replace('\\\\', '\\')
         
-        # Extract brand
-        brand_match = re.search(r'"brand"\s*:\s*"([^"]+)"', product_json)
+        # Extract brand with improved pattern
+        brand_match = re.search(r'"brand"\s*:\s*"([^"\\]*(?:\\.[^"\\]*)*)"', product_json)
         if brand_match:
-            product["brand"] = brand_match.group(1)
+            product["brand"] = brand_match.group(1).replace('\\"', '"').replace('\\\\', '\\')
         
-        # Extract availability
+        # Extract availability with more precise pattern
         available_match = re.search(r'"available"\s*:\s*(true|false)', product_json)
         if available_match:
             product["available"] = available_match.group(1) == "true"
         
-        # Extract price
-        price_match = re.search(r'"current"\s*:\s*{[^}]*"amount"\s*:\s*"([^"]+)"', product_json)
+        # Extract price with enhanced pattern
+        price_match = re.search(r'"current"\s*:\s*{\s*"amount"\s*:\s*"([^"]+)"', product_json)
         if price_match:
             product["price"]["current"]["amount"] = price_match.group(1)
         
-        # Extract image URL
-        image_match = re.search(r'"src"\s*:\s*"([^"]+)"', product_json)
+        # Extract image URL with better pattern
+        image_match = re.search(r'"src"\s*:\s*"([^"\\]*(?:\\.[^"\\]*)*)"', product_json)
         if image_match:
-            product["image"] = {"src": image_match.group(1)}
+            product["image"] = {"src": image_match.group(1).replace('\\"', '"').replace('\\\\', '\\')}
         
         return product
     except Exception as e:
         print(f"Error in fallback extraction: {str(e)}")
         return None
+
+
+def extract_product_info(product, search_term=None):
+    """Extract product info in a memory-efficient way"""
+    # Extract basic product details
+    product_info = {
+        "found": True,
+        "searchTerm": search_term,
+        "productId": product.get("productId"),
+        "retailerProductId": product.get("retailerProductId"),
+        "name": product.get("name"),
+        "brand": product.get("brand"),
+        "available": product.get("available", False),
+        "imageUrl": None,
+        "currency": "CAD"
+    }
+    
+    # Safely extract image URL
+    if "image" in product and isinstance(product["image"], dict):
+        product_info["imageUrl"] = product["image"].get("src")
+    
+    # Safely extract category
+    if "categoryPath" in product and isinstance(product["categoryPath"], list):
+        product_info["category"] = " > ".join(product["categoryPath"])
+    else:
+        product_info["category"] = ""
+    
+    # Handle price information
+    if "price" in product and isinstance(product["price"], dict):
+        price_info = product["price"]
+        
+        # Current price
+        if "current" in price_info and isinstance(price_info["current"], dict):
+            product_info["currentPrice"] = price_info["current"].get("amount")
+            product_info["currency"] = price_info["current"].get("currency", "CAD")
+            
+        # Original price
+        if "original" in price_info and isinstance(price_info["original"], dict):
+            product_info["originalPrice"] = price_info["original"].get("amount")
+            
+            # Calculate discount percentage
+            if ("currentPrice" in product_info and "originalPrice" in product_info and
+                product_info["currentPrice"] is not None and product_info["originalPrice"] is not None):
+                try:
+                    current_price = float(product_info["currentPrice"])
+                    original_price = float(product_info["originalPrice"])
+                    
+                    if original_price > current_price:
+                        discount = ((original_price - current_price) / original_price * 100)
+                        product_info["discountPercentage"] = round(discount)
+                except (ValueError, TypeError):
+                    pass
+                    
+        # Unit price
+        if "unit" in price_info and isinstance(price_info["unit"], dict):
+            if "current" in price_info["unit"] and isinstance(price_info["unit"]["current"], dict):
+                product_info["unitPrice"] = price_info["unit"]["current"].get("amount")
+            product_info["unitLabel"] = price_info["unit"].get("label")
+    
+    # Extract offers, limiting to 5 to save memory
+    if "offers" in product and isinstance(product["offers"], list):
+        offers = product.get("offers", [])
+        product_info["offers"] = offers[:5] if offers else []
+        
+    if "offer" in product:
+        product_info["primaryOffer"] = product.get("offer")
+    
+    return product_info
+
 def process_term(term, session_id, limit, is_article_search=True):
     """Process a single search term and return products found"""
     try:
