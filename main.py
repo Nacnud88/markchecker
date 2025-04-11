@@ -50,48 +50,38 @@ def get_region_info(session_id):
         response = requests.get(url, headers=headers, cookies=cookies, timeout=15)
         
         if response.status_code == 200:
-            # Use a custom approach to avoid recursion issues
-            text_response = response.text
-            
-            # Initialize the region info with default values
-            region_info = {
-                "regionId": None,
-                "nickname": None,
-                "displayAddress": None,
-                "postalCode": None
-            }
-            
-            # Extract region ID
-            region_id_match = re.search(r'"regionId"\s*:\s*"?(\d+)"?', text_response)
-            if region_id_match:
-                region_info["regionId"] = region_id_match.group(1)
+            try:
+                # First try parsing as JSON
+                data = response.json()
+                region_info = {
+                    "regionId": data.get("regionId"),
+                    "nickname": None,
+                    "displayAddress": None,
+                    "postalCode": None
+                }
                 
-            # Extract nickname
-            nickname_match = re.search(r'"nickname"\s*:\s*"([^"]+)"', text_response)
-            if nickname_match:
-                region_info["nickname"] = nickname_match.group(1)
+                # Extract additional information if available
+                if "defaultCheckoutGroup" in data and "delivery" in data["defaultCheckoutGroup"]:
+                    delivery = data["defaultCheckoutGroup"]["delivery"]
+                    if "addressDetails" in delivery:
+                        address = delivery["addressDetails"]
+                        region_info["nickname"] = address.get("nickname")
+                        region_info["displayAddress"] = address.get("displayAddress")
+                        region_info["postalCode"] = address.get("postalCode")
+                        
+                # If we got regionId, return the information
+                if region_info["regionId"]:
+                    # Set a default nickname if none was found
+                    if not region_info["nickname"] and region_info["regionId"]:
+                        region_info["nickname"] = f"Region {region_info['regionId']}"
+                    return region_info
                 
-            # Extract display address
-            addr_match = re.search(r'"displayAddress"\s*:\s*"([^"]+)"', text_response)
-            if addr_match:
-                region_info["displayAddress"] = addr_match.group(1)
+                # If we couldn't get region info via JSON parsing, fall back to regex approach
+                return fallback_region_extraction(response.text)
                 
-            # Extract postal code
-            postal_match = re.search(r'"postalCode"\s*:\s*"([^"]+)"', text_response)
-            if postal_match:
-                region_info["postalCode"] = postal_match.group(1)
-                
-            # If we couldn't find the region ID directly, try an alternative approach
-            if not region_info["regionId"]:
-                alt_region_match = re.search(r'"region"\s*:\s*{\s*"id"\s*:\s*"?(\d+)"?', text_response)
-                if alt_region_match:
-                    region_info["regionId"] = alt_region_match.group(1)
-            
-            # Set a default nickname if none was found
-            if not region_info["nickname"] and region_info["regionId"]:
-                region_info["nickname"] = f"Region {region_info['regionId']}"
-                
-            return region_info
+            except ValueError:
+                # JSON parsing failed, use regex fallback
+                return fallback_region_extraction(response.text)
         
         # Return a default object if there was an error
         return {
@@ -125,6 +115,48 @@ def get_region_info(session_id):
             "displayAddress": str(e)[:50],  # Limit length to avoid issues
             "postalCode": "Unknown"
         }
+
+def fallback_region_extraction(text_response):
+    """Extract region info using regex as a fallback method"""
+    # Initialize the region info with default values
+    region_info = {
+        "regionId": None,
+        "nickname": None,
+        "displayAddress": None,
+        "postalCode": None
+    }
+    
+    # Extract region ID
+    region_id_match = re.search(r'"regionId"\s*:\s*"?(\d+)"?', text_response)
+    if region_id_match:
+        region_info["regionId"] = region_id_match.group(1)
+        
+    # Extract nickname
+    nickname_match = re.search(r'"nickname"\s*:\s*"([^"]+)"', text_response)
+    if nickname_match:
+        region_info["nickname"] = nickname_match.group(1)
+        
+    # Extract display address
+    addr_match = re.search(r'"displayAddress"\s*:\s*"([^"]+)"', text_response)
+    if addr_match:
+        region_info["displayAddress"] = addr_match.group(1)
+        
+    # Extract postal code
+    postal_match = re.search(r'"postalCode"\s*:\s*"([^"]+)"', text_response)
+    if postal_match:
+        region_info["postalCode"] = postal_match.group(1)
+        
+    # If we couldn't find the region ID directly, try an alternative approach
+    if not region_info["regionId"]:
+        alt_region_match = re.search(r'"region"\s*:\s*{\s*"id"\s*:\s*"?(\d+)"?', text_response)
+        if alt_region_match:
+            region_info["regionId"] = alt_region_match.group(1)
+    
+    # Set a default nickname if none was found
+    if not region_info["nickname"] and region_info["regionId"]:
+        region_info["nickname"] = f"Region {region_info['regionId']}"
+        
+    return region_info
         
 def parse_search_terms(search_input):
     """
@@ -938,6 +970,90 @@ def auto_scrape():
     except Exception as e:
         traceback.print_exc()
         return jsonify({"error": str(e)}), 500
+
+def process_product(product):
+    """Process a product from API into a simplified format"""
+    if not product:
+        return None
+
+    try:
+        # Extract basic product details
+        processed_product = {
+            "found": True,
+            "productId": product.get("productId"),
+            "retailerProductId": product.get("retailerProductId"),
+            "name": product.get("name"),
+            "brand": product.get("brand"),
+            "available": product.get("available", False),
+            "imageUrl": None,
+            "currency": "CAD"
+        }
+        
+        # Safely extract image URL
+        if "image" in product and isinstance(product["image"], dict):
+            processed_product["imageUrl"] = product["image"].get("src")
+        
+        # Safely extract category
+        if "categoryPath" in product and isinstance(product["categoryPath"], list):
+            processed_product["category"] = " > ".join(product["categoryPath"])
+        else:
+            processed_product["category"] = ""
+        
+        # Handle price information
+        if "price" in product and isinstance(product["price"], dict):
+            price_info = product["price"]
+            
+            # Current price
+            if "current" in price_info and isinstance(price_info["current"], dict):
+                processed_product["currentPrice"] = price_info["current"].get("amount")
+                processed_product["currency"] = price_info["current"].get("currency", "CAD")
+                
+            # Original price
+            if "original" in price_info and isinstance(price_info["original"], dict):
+                processed_product["originalPrice"] = price_info["original"].get("amount")
+                
+                # Calculate discount percentage
+                if ("currentPrice" in processed_product and "originalPrice" in processed_product and
+                    processed_product["currentPrice"] is not None and processed_product["originalPrice"] is not None):
+                    try:
+                        current_price = float(processed_product["currentPrice"])
+                        original_price = float(processed_product["originalPrice"])
+                        
+                        if original_price > current_price:
+                            discount = ((original_price - current_price) / original_price * 100)
+                            processed_product["discountPercentage"] = round(discount)
+                    except (ValueError, TypeError):
+                        pass
+                        
+            # Unit price
+            if "unit" in price_info and isinstance(price_info["unit"], dict):
+                if "current" in price_info["unit"] and isinstance(price_info["unit"]["current"], dict):
+                    processed_product["unitPrice"] = price_info["unit"]["current"].get("amount")
+                processed_product["unitLabel"] = price_info["unit"].get("label")
+        
+        # Extract offers, limiting to 5 to save memory
+        if "offers" in product and isinstance(product["offers"], list):
+            offers = product.get("offers", [])
+            processed_product["offers"] = offers[:5] if offers else []
+            
+        if "offer" in product:
+            processed_product["primaryOffer"] = product.get("offer")
+        
+        return processed_product
+    except Exception as e:
+        print(f"Error processing product: {str(e)}")
+        # Return a minimal product on error
+        return {
+            "found": True,
+            "productId": product.get("productId"),
+            "retailerProductId": product.get("retailerProductId"),
+            "name": product.get("name", "Product Processing Error"),
+            "brand": product.get("brand", "N/A"),
+            "available": False,
+            "imageUrl": None,
+            "currency": "CAD",
+            "error": str(e)[:100]  # Include truncated error message
+        }
 
 def scrape_flyer_products(session_id, max_products=100):
     """Scrape flyer products from Voila.ca"""
