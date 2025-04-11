@@ -290,94 +290,6 @@
         transition: width 0.3s ease;
     }
 
-    .progress-status {
-        margin-top: 8px;
-        font-size: 0.9rem;
-        color: var(--voila-dark-green);
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-    }
-    
-    .progress-details {
-        font-size: 0.8rem;
-        color: var(--voila-gray);
-    }
-    
-    /* Batch Progress */
-    .batch-progress {
-        margin-top: 10px;
-        animation: fadeIn 0.5s ease;
-    }
-    
-    .progress-item-details {
-        margin-top: 15px;
-        padding: 15px;
-        background-color: #f8f9fa;
-        border-radius: 8px;
-        border-left: 3px solid var(--voila-cyan);
-        animation: fadeIn 0.5s ease;
-        transition: all 0.3s ease;
-    }
-    
-    .progress-item-details:hover {
-        background-color: #f1f3f5;
-        border-left-width: 5px;
-    }
-    
-    .progress-item-name {
-        font-weight: 600;
-        color: var(--voila-dark-green);
-        margin-bottom: 10px;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
-    
-    .progress-item-info {
-        font-size: 0.9rem;
-        color: var(--voila-gray);
-        padding: 8px;
-        background: #fff;
-        border-radius: 5px;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-    }
-    
-    .progress-metrics {
-        display: flex;
-        justify-content: space-between;
-        margin: 15px 0;
-        gap: 10px;
-    }
-    
-    .progress-metric {
-        text-align: center;
-        background: #fff;
-        padding: 12px 10px;
-        border-radius: 8px;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-        flex: 1;
-        min-width: 80px;
-        transition: all 0.2s ease;
-    }
-    
-    .progress-metric:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 3px 6px rgba(0,0,0,0.15);
-    }
-    
-    .progress-metric-value {
-        font-weight: bold;
-        font-size: 1.3rem;
-        color: var(--voila-dark-green);
-    }
-    
-    .progress-metric-label {
-        font-size: 0.8rem;
-        color: var(--voila-gray);
-        margin-top: 5px;
-    }
-
     /* Duplicate Message */
     .duplicate-message {
         background-color: var(--voila-light-yellow);
@@ -693,15 +605,6 @@
             align-self: flex-start;
         }
         
-        .progress-metrics {
-            flex-direction: column;
-            gap: 8px;
-        }
-        
-        .progress-metric {
-            width: 100%;
-        }
-        
         .search-type-toggle .btn {
             padding: 0.5rem;
             font-size: 0.9rem;
@@ -724,58 +627,6 @@
             width: 100%;
             margin-bottom: 5px;
         }
-    }
-    
-    /* Dark mode for system preference */
-    @media (prefers-color-scheme: dark) {
-        .dark-mode-toggle {
-            display: block;
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            z-index: 1000;
-            background: var(--voila-dark-green);
-            color: white;
-            border: none;
-            border-radius: 50%;
-            width: 50px;
-            height: 50px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
-            transition: all 0.3s ease;
-        }
-        
-        .dark-mode-toggle:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
-        }
-    }
-    
-    /* Hover effects */
-    .card {
-        transition: all 0.3s ease;
-    }
-    
-    .card:hover {
-        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
-    }
-    
-    /* Tooltip Styles */
-    .tooltip-inner {
-        background-color: var(--voila-dark-green);
-        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        max-width: 300px;
-        padding: 10px 15px;
-        border-radius: 5px;
-        font-size: 0.9rem;
-    }
-    
-    .bs-tooltip-auto[data-popper-placement^=top] .tooltip-arrow::before, 
-    .bs-tooltip-top .tooltip-arrow::before {
-        border-top-color: var(--voila-dark-green);
     }
 </style>
 </head>
@@ -914,53 +765,12 @@
                 </div>
                 <p class="mt-2" id="loadingMessage">Searching products...</p>
                 
-                <!-- Enhanced Progress Bar -->
+                <!-- Simplified Progress Bar -->
                 <div class="progress-container" id="progressContainer">
-                    <!-- Overall Progress -->
                     <div class="progress mb-2">
                         <div class="progress-bar" id="progressBar" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0%</div>
                     </div>
-                    <div class="progress-status" id="progressStatus">
-                        <span id="progressStatusText">Initializing search...</span>
-                        <span id="progressTimeRemaining"></span>
-                    </div>
-                    
-                    <!-- Batch Progress -->
-                    <div class="batch-progress mt-3 mb-3" id="batchProgressContainer" style="display: none;">
-                        <div class="d-flex justify-content-between">
-                            <span class="small text-muted">Current Batch Progress:</span>
-                            <span class="small text-muted" id="batchProgressLabel">Batch 0/0</span>
-                        </div>
-                        <div class="progress" style="height: 12px;">
-                            <div class="progress-bar bg-info" id="batchProgressBar" role="progressbar" style="width: 0%" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
-                        </div>
-                    </div>
-                    
-                    <!-- Progress Metrics -->
-                    <div class="progress-metrics">
-                        <div class="progress-metric">
-                            <div class="progress-metric-value" id="progressProcessed">0</div>
-                            <div class="progress-metric-label">Processed</div>
-                        </div>
-                        <div class="progress-metric">
-                            <div class="progress-metric-value" id="progressTotal">0</div>
-                            <div class="progress-metric-label">Total Items</div>
-                        </div>
-                        <div class="progress-metric">
-                            <div class="progress-metric-value" id="progressFound">0</div>
-                            <div class="progress-metric-label">Found</div>
-                        </div>
-                        <div class="progress-metric">
-                            <div class="progress-metric-value" id="progressNotFound">0</div>
-                            <div class="progress-metric-label">Not Found</div>
-                        </div>
-                    </div>
-                    
-                    <!-- Current Item Details -->
-                    <div class="progress-item-details" id="currentItemDetails" style="display: none;">
-                        <div class="progress-item-name" id="currentItemName">Processing: </div>
-                        <div class="progress-item-info" id="currentItemInfo"></div>
-                    </div>
+                    <p id="progressStatusText" class="text-center mt-2">Processing your request...</p>
                     
                     <!-- Cancel Button -->
                     <div class="text-center mt-3">
@@ -1062,31 +872,29 @@
         <!-- Instructions Tab -->
         <div class="tab-pane fade" id="instructions-tab-pane" role="tabpanel" aria-labelledby="instructions-tab" tabindex="0">
             <div class="instructions">
-                <h4><i class="fas fa-info-circle me-2"></i>How to Use the Voila Price Checker</h4>
-                <p>This tool allows you to search for products on Voila.ca using your personal session ID in two different ways:</p>
+                <h4><i class="fas fa-info-circle me-2"></i>How to Use</h4>
+                
+                <div class="alert alert-info mb-4">
+                    <h5><i class="fas fa-key me-2"></i>Getting Started:</h5>
+                    <ol>
+                        <li>Log in to your Voila.ca account and copy your session ID ("global_sid" cookie)</li>
+                        <li>Paste the session ID in the input field</li>
+                        <li>Enter your search terms (article codes or general product names)</li> 
+                        <li>Click "Search Products"</li>
+                    </ol>
+                </div>
                 
                 <div class="card mb-4">
                     <div class="card-header bg-primary text-white">
                         <h5 class="mb-0"><i class="fas fa-barcode me-2"></i>Article Search</h5>
                     </div>
                     <div class="card-body">
-                        <p>Use this mode when you have specific article codes or product IDs to look up.</p>
-                        <ol>
-                            <li>Enter your Voila session ID</li>
-                            <li>Select "Article Search" mode</li>
-                            <li>Paste a list of article codes in any format (comma-separated, one per line, etc.)</li>
-                            <li>Click "Search Products"</li>
-                        </ol>
-                        <div class="alert alert-info">
-                            <strong>Article Code Formats:</strong> The tool automatically detects and parses article codes in various formats:
-                            <ul>
-                                <li>Comma-separated: <code>123456EA, 789012EA</code></li>
-                                <li>One code per line (as copied from Excel)</li>
-                                <li>Space-separated: <code>123456EA 789012EA</code></li>
-                                <li>Continuous list: <code>123456EA789012EA</code> will be automatically parsed</li>
-                            </ul>
-                            Duplicate codes will be automatically detected and removed.
-                        </div>
+                        <p>Use when you have specific product codes. The tool automatically detects formats like:</p>
+                        <ul>
+                            <li>Comma-separated: <code>123456EA, 789012EA</code></li>
+                            <li>One code per line</li>
+                            <li>Continuous list: <code>123456EA789012EA</code></li>
+                        </ul>
                     </div>
                 </div>
                 
@@ -1095,87 +903,14 @@
                         <h5 class="mb-0"><i class="fas fa-search me-2"></i>Generic Search</h5>
                     </div>
                     <div class="card-body">
-                        <p>Use this mode when you want to search for general terms like "Water" or "Coffee".</p>
-                        <ol>
-                            <li>Enter your Voila session ID</li>
-                            <li>Select "Generic Search" mode</li>
-                            <li>Enter a search term</li>
-                            <li>Choose how many results you want per term (up to 50)</li>
-                            <li>Click "Search Products"</li>
-                        </ol>
-                        <div class="alert alert-warning">
-                            Generic searches will return multiple matching products per term, up to the limit you specify.
-                        </div>
-                    </div>
-                </div>
-
-                <h5 class="mt-3"><i class="fas fa-key me-2"></i>How to Get Your Session ID:</h5>
-                <ol>
-                    <li>Log in to your Voila.ca account</li>
-                    <li>Book a time in the region you want to search</li>
-                    <li>Open your browser's developer tools (F12 or right-click and select "Inspect")</li>
-                    <li>Go to the "Application" or "Storage" tab</li>
-                    <li>Look for "Cookies" and find the "global_sid" cookie value</li>
-                    <li>Copy the entire value and paste it in the Session ID field</li>
-                </ol>
-                
-                <h5 class="mt-3"><i class="fas fa-star me-2"></i>Features:</h5>
-                <div class="row">
-                    <div class="col-md-6">
-                        <ul class="list-group mb-3">
-                            <li class="list-group-item d-flex align-items-center">
-                                <i class="fas fa-chart-line text-primary me-2"></i>
-                                <div>
-                                    <strong>Progress Tracking</strong>
-                                    <div class="small text-muted">For large batches, you'll see detailed progress information</div>
-                                </div>
-                            </li>
-                            <li class="list-group-item d-flex align-items-center">
-                                <i class="fas fa-filter text-success me-2"></i>
-                                <div>
-                                    <strong>Advanced Filtering</strong>
-                                    <div class="small text-muted">Filter results by availability, discount, and more</div>
-                                </div>
-                            </li>
-                            <li class="list-group-item d-flex align-items-center">
-                                <i class="fas fa-file-export text-info me-2"></i>
-                                <div>
-                                    <strong>Export to Excel</strong>
-                                    <div class="small text-muted">Export your search results with various filtering options</div>
-                                </div>
-                            </li>
-                        </ul>
-                    </div>
-                    <div class="col-md-6">
-                        <ul class="list-group">
-                            <li class="list-group-item d-flex align-items-center">
-                                <i class="fas fa-clone text-warning me-2"></i>
-                                <div>
-                                    <strong>Duplicate Detection</strong>
-                                    <div class="small text-muted">Automatic detection and removal of duplicate search terms</div>
-                                </div>
-                            </li>
-                            <li class="list-group-item d-flex align-items-center">
-                                <i class="fas fa-sort-amount-down text-danger me-2"></i>
-                                <div>
-                                    <strong>Sorting Options</strong>
-                                    <div class="small text-muted">Sort by price, name, or discount percentage</div>
-                                </div>
-                            </li>
-                            <li class="list-group-item d-flex align-items-center">
-                                <i class="fas fa-mobile-alt text-secondary me-2"></i>
-                                <div>
-                                    <strong>Mobile Friendly</strong>
-                                    <div class="small text-muted">Works well on smartphones and tablets</div>
-                                </div>
-                            </li>
-                        </ul>
+                        <p>Use when searching for general terms like "Water" or "Coffee".</p>
+                        <p>Choose how many results you want per term (up to 50).</p>
                     </div>
                 </div>
                 
                 <div class="alert alert-danger mt-3">
                     <i class="fas fa-exclamation-circle me-2"></i>
-                    <strong>Important:</strong> This tool uses your personal Voila session for API requests. Your session ID is never stored or shared, but be aware that using the tool will count as activity on your Voila account.
+                    <strong>Important:</strong> Your session ID is never stored or shared, but using this tool will count as activity on your Voila account.
                 </div>
             </div>
         </div>
@@ -1229,28 +964,6 @@
                 </div>
                 
                 <div class="export-option">
-                    <input type="radio" name="exportOption" id="exportAvailable">
-                    <label for="exportAvailable">
-                        <i class="fas fa-shopping-basket text-info me-2"></i>
-                        <span>
-                            <strong>Available Products Only</strong>
-                            <div class="small text-muted">Export only products that are available</div>
-                        </span>
-                    </label>
-                </div>
-                
-                <div class="export-option">
-                    <input type="radio" name="exportOption" id="exportUnavailable">
-                    <label for="exportUnavailable">
-                        <i class="fas fa-ban text-warning me-2"></i>
-                        <span>
-                            <strong>Unavailable Products Only</strong>
-                            <div class="small text-muted">Export only products that are unavailable</div>
-                        </span>
-                    </label>
-                </div>
-                
-                <div class="export-option">
                     <input type="radio" name="exportOption" id="exportCurrentView">
                     <label for="exportCurrentView">
                         <i class="fas fa-filter text-secondary me-2"></i>
@@ -1291,17 +1004,6 @@
         const progressContainer = document.getElementById('progressContainer');
         const progressBar = document.getElementById('progressBar');
         const progressStatusText = document.getElementById('progressStatusText');
-        const progressTimeRemaining = document.getElementById('progressTimeRemaining');
-        const progressProcessed = document.getElementById('progressProcessed');
-        const progressTotal = document.getElementById('progressTotal');
-        const progressFound = document.getElementById('progressFound');
-        const progressNotFound = document.getElementById('progressNotFound');
-        const batchProgressContainer = document.getElementById('batchProgressContainer');
-        const batchProgressBar = document.getElementById('batchProgressBar');
-        const batchProgressLabel = document.getElementById('batchProgressLabel');
-        const currentItemDetails = document.getElementById('currentItemDetails');
-        const currentItemName = document.getElementById('currentItemName');
-        const currentItemInfo = document.getElementById('currentItemInfo');
         const resultsContainer = document.getElementById('resultsContainer');
         const searchInfo = document.getElementById('searchInfo');
         const resultStats = document.getElementById('resultStats');
@@ -1345,14 +1047,8 @@
         let currentRegionInfo = null;
         let parsedTerms = [];
         let duplicatesFound = [];
-        let isProcessingLargeRequest = false;
-        let streamingResponse = null;
         let abortController = null;
-        let searchStartTime = null;
-        
-        // Progress tracking for estimated time
-        let progressUpdateTimes = [];
-        let progressUpdateValues = [];
+        let progressInterval = null;
         
         // Initialize tooltips
         var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
@@ -1407,8 +1103,6 @@
             let option = 'all';
             if (document.getElementById('exportFound').checked) option = 'found';
             else if (document.getElementById('exportNotFound').checked) option = 'notFound';
-            else if (document.getElementById('exportAvailable').checked) option = 'available';
-            else if (document.getElementById('exportUnavailable').checked) option = 'unavailable';
             else if (document.getElementById('exportCurrentView').checked) option = 'currentView';
             
             // Export with the selected option
@@ -1508,272 +1202,79 @@
             searchTerms.focus();
         }
 
-        // Function to handle streaming response for large requests
-        function handleStreamingResponse(reader, decoder, buffer = "") {
-            return reader.read().then(({ done, value }) => {
-                if (done) {
-                    console.log("Stream complete");
-                    if (buffer.length > 0) {
-                        try {
-                            const jsonData = JSON.parse(buffer);
-                            processResults(jsonData);
-                        } catch (e) {
-                            console.error("Error parsing final buffer:", e);
-                            console.error("Buffer content:", buffer);
-                        }
-                    }
-                    
-                    // Hide loading spinner when done
-                    loadingSpinner.style.display = 'none';
-                    
-                    // Update progress bar
-                    updateProgress(100, "Processing complete!", null, true);
-                    setTimeout(() => {
-                        progressContainer.style.display = 'none';
-                    }, 2000);
-                    
-                    isProcessingLargeRequest = false;
-                    streamingResponse = null;
-                    return;
+        // Simulated progress bar function
+        function startSimulatedProgress() {
+            let progress = 0;
+            const randomIncrement = () => Math.random() * 5 + 1; // Random increment between 1-6%
+            
+            // Clear any existing interval
+            if (progressInterval) clearInterval(progressInterval);
+            
+            // Reset progress bar
+            progressBar.style.width = '0%';
+            progressBar.textContent = '0%';
+            progressContainer.style.display = 'block';
+            
+            // Start new interval
+            progressInterval = setInterval(() => {
+                // Add random increment but slow down as we get closer to 90%
+                if (progress < 50) {
+                    progress += randomIncrement();
+                } else if (progress < 75) {
+                    progress += randomIncrement() / 2;
+                } else if (progress < 90) {
+                    progress += randomIncrement() / 4;
                 }
                 
-                // Decode the current chunk
-                const chunk = decoder.decode(value, { stream: true });
-                buffer += chunk;
+                // Cap at 90% - the remaining will be filled when data arrives
+                progress = Math.min(progress, 90);
                 
-                // Look for special progress update markers - these contain product data
-                const progressUpdateIndex = buffer.indexOf('"progress_update": true');
-                if (progressUpdateIndex > 0) {
-                    try {
-                        // Find JSON object boundaries by counting braces
-                        let openBraces = 0;
-                        let startPos = 0;
-                        let endPos = 0;
-                        
-                        // Find the opening brace for this object
-                        for (let i = progressUpdateIndex; i >= 0; i--) {
-                            if (buffer[i] === '{') {
-                                startPos = i;
-                                break;
-                            }
-                        }
-                        
-                        // Count braces to find the corresponding closing brace
-                        for (let i = startPos; i < buffer.length; i++) {
-                            if (buffer[i] === '{') openBraces++;
-                            if (buffer[i] === '}') {
-                                openBraces--;
-                                if (openBraces === 0) {
-                                    endPos = i + 1;
-                                    break;
-                                }
-                            }
-                        }
-                        
-                        // If we found a complete progress update object
-                        if (endPos > startPos) {
-                            const progressData = JSON.parse(buffer.substring(startPos, endPos));
-                            
-                            // Process the progress update
-                            processStreamingUpdate(progressData);
-                            
-                            // Remove the processed portion from buffer
-                            buffer = buffer.substring(endPos);
-                        }
-                    } catch (e) {
-                        console.error("Error processing progress update:", e);
-                        // Continue processing - don't clear buffer here as it might contain partial data
-                    }
+                // Update progress bar
+                progressBar.style.width = `${progress}%`;
+                progressBar.setAttribute('aria-valuenow', progress);
+                progressBar.textContent = `${Math.round(progress)}%`;
+                
+                // Update status message occasionally
+                if (Math.random() > 0.8) {
+                    const messages = [
+                        "Searching for products...",
+                        "Processing your request...",
+                        "Fetching product data...",
+                        "Almost there...",
+                        "Looking up article codes..."
+                    ];
+                    progressStatusText.textContent = messages[Math.floor(Math.random() * messages.length)];
                 }
-                
-                // Also try to parse the whole buffer as regular JSON when complete
-                if (buffer.includes('"status": "completed"')) {
-                    try {
-                        // Try to parse the buffer as JSON
-                        const jsonData = JSON.parse(buffer);
-                        // If we get here, it's valid JSON
-                        processResults(jsonData);
-                        buffer = "";
-                    } catch (e) {
-                        // Not valid JSON yet, continue accumulating
-                        // Nothing to do, just continue
-                    }
-                }
-                
-                // Continue reading
-                return handleStreamingResponse(reader, decoder, buffer);
-            });
+            }, 300);
         }
         
-        // Enhanced streaming handling
-        function processStreamingUpdate(progressData) {
-            // Update progress based on batch information
-            const percentComplete = progressData.progress_percent || 
-                (progressData.processed / progressData.total * 100);
-            
-            // Create a richer status message
-            let statusMsg = progressData.batch_current ? 
-                `Processing batch ${progressData.batch_current} of ${progressData.batch_total}` : 
-                `Processing ${progressData.processed} of ${progressData.total} items`;
-            
-            // Update progress metrics
-            progressProcessed.textContent = progressData.processed || 0;
-            progressTotal.textContent = progressData.total || 0;
-            progressFound.textContent = progressData.found || 0;
-            progressNotFound.textContent = progressData.processed - progressData.found || 0;
-            
-            // Create current item info
-            const currentItem = {
-                searchTerm: progressData.current_term || 
-                          (progressData.current_batch_terms ? progressData.current_batch_terms[0] : "Current batch"),
-                batchCurrent: progressData.batch_current,
-                batchTotal: progressData.batch_total
-            };
-            
-            // Update the progress UI
-            updateProgress(
-                percentComplete,
-                statusMsg,
-                currentItem,
-                false
-            );
-            
-            // Update batch progress if available
-            if (progressData.batch_current && progressData.batch_total) {
-                updateBatchProgress(progressData.batch_current, progressData.batch_total);
+        // Function to stop the simulated progress
+        function stopSimulatedProgress(success = true) {
+            // Clear the interval
+            if (progressInterval) {
+                clearInterval(progressInterval);
+                progressInterval = null;
             }
             
-            // If products were received, add them to the results
-            if (progressData.products && progressData.products.length) {
-                console.log(`Processing ${progressData.products.length} products from stream update`);
-                
-                // Merge products with existing results
-                allSearchResults = allSearchResults.concat(progressData.products);
-                
-                // Update counters
-                const foundProducts = progressData.products.filter(p => p.found === true);
-                const notFoundProds = progressData.products.filter(p => p.found === false);
-                
-                totalFoundProducts = progressData.found || (totalFoundProducts + foundProducts.length);
-                notFoundProducts = (progressData.processed - progressData.found) || (notFoundProducts + notFoundProds.length);
-                displayedProducts = allSearchResults.length;
-                
-                // Display new products incrementally
-                displayResults(progressData.products, resultsContainer);
-                
-                // Show results section and update stats
-                showResultsSection();
-                
-                // Also update filter controls visibility
-                filterControls.style.display = 'block';
-            }
+            // Complete the progress bar
+            progressBar.style.width = success ? '100%' : '0%';
+            progressBar.setAttribute('aria-valuenow', success ? 100 : 0);
+            progressBar.textContent = success ? '100%' : '0%';
+            
+            // Update status message
+            progressStatusText.textContent = success ? 'Complete!' : 'Cancelled';
+            
+            // Hide the progress container after a delay
+            setTimeout(() => {
+                progressContainer.style.display = 'none';
+            }, 1000);
         }
 
-        // Function to calculate estimated time remaining
-        function calculateTimeRemaining(percentComplete) {
-            const now = Date.now();
-            
-            // Add the current progress to our tracking arrays
-            progressUpdateTimes.push(now);
-            progressUpdateValues.push(percentComplete);
-            
-            // Keep only the last 10 updates for calculation
-            if (progressUpdateTimes.length > 10) {
-                progressUpdateTimes.shift();
-                progressUpdateValues.shift();
-            }
-            
-            // Need at least 2 points to estimate
-            if (progressUpdateTimes.length < 2) {
-                return "Calculating...";
-            }
-            
-            // Calculate rate of progress
-            const oldestTime = progressUpdateTimes[0];
-            const oldestValue = progressUpdateValues[0];
-            const timeElapsed = now - oldestTime; // ms
-            const progressMade = percentComplete - oldestValue; // percentage points
-            
-            // Avoid division by zero
-            if (progressMade <= 0) {
-                return "Calculating...";
-            }
-            
-            // Calculate rate: percentage points per ms
-            const rate = progressMade / timeElapsed;
-            
-            // Calculate remaining time
-            const remainingProgress = 100 - percentComplete;
-            const estimatedTimeRemaining = remainingProgress / rate; // ms
-            
-            // Format nicely
-            if (estimatedTimeRemaining < 60000) {
-                // Less than a minute
-                return `~${Math.round(estimatedTimeRemaining / 1000)}s remaining`;
-            } else {
-                // Minutes and seconds
-                const minutes = Math.floor(estimatedTimeRemaining / 60000);
-                const seconds = Math.round((estimatedTimeRemaining % 60000) / 1000);
-                return `~${minutes}m ${seconds}s remaining`;
-            }
-        }
-
-        // Function to update progress bar
-        function updateProgress(percent, statusText, currentItem = null, finished = false) {
-            if (progressContainer.style.display === 'none') {
-                progressContainer.style.display = 'block';
-            }
-            
-            // Update main progress bar
-            progressBar.style.width = `${percent}%`;
-            progressBar.setAttribute('aria-valuenow', percent);
-            progressBar.textContent = `${Math.round(percent)}%`;
-            progressStatusText.textContent = statusText;
-            
-            // Update time remaining if not finished
-            if (!finished) {
-                progressTimeRemaining.textContent = calculateTimeRemaining(percent);
-            } else {
-                progressTimeRemaining.textContent = "Complete!";
-            }
-            
-            // Update current item if provided
-            if (currentItem) {
-                currentItemDetails.style.display = 'block';
-                currentItemName.textContent = `Processing: ${currentItem.searchTerm || currentItem}`;
-                
-                // If this is a product with more details, show them
-                if (currentItem.name) {
-                    currentItemInfo.style.display = 'block';
-                    currentItemInfo.textContent = currentItem.found ? 
-                        `Found: ${currentItem.name} (${currentItem.available ? 'Available' : 'Unavailable'})` : 
-                        `Not found: ${currentItem.notFoundMessage || 'No details available'}`;
-                }
-                
-                // If we have batch information, show batch progress
-                if (currentItem.batchCurrent && currentItem.batchTotal) {
-                    updateBatchProgress(currentItem.batchCurrent, currentItem.batchTotal);
-                }
-            }
-        }
-        
-        // Function to update batch progress
-        function updateBatchProgress(current, total) {
-            batchProgressContainer.style.display = 'block';
-            
-            const percent = Math.min(100, Math.round((current / total) * 100));
-            batchProgressBar.style.width = `${percent}%`;
-            batchProgressBar.setAttribute('aria-valuenow', percent);
-            
-            batchProgressLabel.textContent = `Batch ${current} of ${total} (${percent}%)`;
-        }
-
-        // Function to process and display search results
+        // Function to process search results
         function processResults(data) {
-            // If this is not a streaming response, hide loading spinner
-            if (!isProcessingLargeRequest) {
-                loadingSpinner.style.display = 'none';
-            }
+            // Hide loading spinner
+            loadingSpinner.style.display = 'none';
+            stopSimulatedProgress(true);
             
             // If there's an error, show it and stop
             if (data.error) {
@@ -1853,12 +1354,6 @@
                 parsedTermsList.appendChild(termsList);
             }
 
-            // For streaming responses, update progress if available
-            if (data.status === 'processing' && data.total_terms && data.total_batches) {
-                loadingMessage.textContent = `Processing ${data.total_terms} ${data.search_type === 'article' ? 'article codes' : 'search terms'} in ${data.total_batches} batches...`;
-                progressTotal.textContent = data.total_terms;
-            }
-
             // Count found and not found products
             if (data.products && data.products.length) {
                 // Store all products for display and export
@@ -1875,23 +1370,6 @@
                 // Show filter controls if we have products
                 if (data.products.length > 0) {
                     filterControls.style.display = 'block';
-                }
-                
-                // For streaming response, update progress based on processed products
-                if (isProcessingLargeRequest && data.total_processed && data.total_terms) {
-                    const percentComplete = (data.total_processed / data.total_terms) * 100;
-                    const latestProduct = data.products.length > 0 ? data.products[data.products.length - 1] : null;
-                    
-                    // Update progress metrics
-                    progressProcessed.textContent = data.total_processed;
-                    progressFound.textContent = totalFoundProducts;
-                    progressNotFound.textContent = notFoundProducts;
-                    
-                    updateProgress(
-                        percentComplete,
-                        `Processed ${data.total_processed} of ${data.total_terms} terms`,
-                        latestProduct
-                    );
                 }
             }
 
@@ -2071,26 +1549,7 @@
                 if (!response.ok) {
                     throw new Error(`Server returned ${response.status}: ${response.statusText}`);
                 }
-                
-                // Check if there's content
-                if (response.headers.get('content-length') === '0') {
-                    throw new Error('Server returned an empty response');
-                }
-                
-                // Parse as JSON with error handling
-                return response.text().then(text => {
-                    if (!text || text.trim() === '') {
-                        throw new Error('Empty response from server');
-                    }
-                    
-                    try {
-                        return JSON.parse(text);
-                    } catch (e) {
-                        console.error('JSON parse error:', e);
-                        console.error('Raw response:', text);
-                        throw new Error(`Invalid JSON response: ${e.message}`);
-                    }
-                });
+                return response.json();
             })
             .then(data => {
                 if (data.error) {
@@ -2143,19 +1602,8 @@
                 abortController = null;
             }
             
-            if (streamingResponse) {
-                try {
-                    // Try to cancel the reader if it exists
-                    if (streamingResponse.reader && streamingResponse.reader.cancel) {
-                        streamingResponse.reader.cancel();
-                    }
-                } catch (e) {
-                    console.error("Error cancelling stream:", e);
-                }
-                streamingResponse = null;
-            }
-            
-            isProcessingLargeRequest = false;
+            // Stop progress simulation
+            stopSimulatedProgress(false);
         }
 
         // Main search function
@@ -2182,11 +1630,8 @@
             // Create abort controller for request cancellation
             abortController = new AbortController();
 
-            // Show loading spinner
+            // Show loading spinner and start progress simulation
             loadingSpinner.style.display = 'block';
-            progressContainer.style.display = 'none';
-            batchProgressContainer.style.display = 'none';
-            currentItemDetails.style.display = 'none';
             loadingMessage.textContent = searchType === 'article' ? 'Searching for articles...' : 'Performing generic search...';
             resultsContainer.innerHTML = '';
             searchInfo.style.display = 'none';
@@ -2197,15 +1642,9 @@
             duplicateList.style.display = 'none';
             toggleDuplicateList.style.display = 'none';
             noResultsMessage.style.display = 'none';
-
-            // Reset progress tracking
-            searchStartTime = Date.now();
-            progressUpdateTimes = [];
-            progressUpdateValues = [];
-            progressProcessed.textContent = '0';
-            progressTotal.textContent = '0';
-            progressFound.textContent = '0';
-            progressNotFound.textContent = '0';
+            
+            // Start simulated progress bar
+            startSimulatedProgress();
 
             // Reset results
             allSearchResults = [];
@@ -2223,163 +1662,57 @@
                 searchType: searchType
             };
             
-            // Check if this might be a large request based on search type and input size
-            let isLargeRequest = false;
-            
-            if (searchType === 'article') {
-                // For article search, check commas, lines, EA codes
-                const commaCount = (searchTermsInput.match(/,/g) || []).length;
-                const lineCount = (searchTermsInput.match(/\n/g) || []).length;
-                const eaCodeCount = (searchTermsInput.match(/\d+EA/gi) || []).length;
+            // Make the request
+            fetch('/api/fetch-product', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(payload),
+                signal: abortController.signal
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`Server returned ${response.status}: ${response.statusText}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                processResults(data);
+            })
+            .catch(error => {
+                loadingSpinner.style.display = 'none';
+                stopSimulatedProgress(false);
                 
-                isLargeRequest = (commaCount + lineCount > 30) || (eaCodeCount > 30) || searchTermsInput.length > 1000;
-            } else {
-                // For generic search, not likely to be a large batch request
-                isLargeRequest = false;
-            }
-            
-            isProcessingLargeRequest = isLargeRequest;
-            
-            if (isProcessingLargeRequest) {
-                // For large requests, use streaming response
-                loadingMessage.textContent = 'Processing large request, please wait...';
-                updateProgress(0, 'Preparing to process large batch of product codes...');
+                searchInfo.style.display = 'block';
+                searchResultsTitle.textContent = `Error`;
                 
-                fetch('/api/fetch-product', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(payload),
-                    signal: abortController.signal
-                })
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error(`Server returned ${response.status}: ${response.statusText}`);
-                    }
-                    
-                    // Initialize stream processing
-                    const reader = response.body.getReader();
-                    const decoder = new TextDecoder();
-                    
-                    // Store stream info for potential cancellation
-                    streamingResponse = { reader, decoder };
-                    
-                    // Begin processing the stream
-                    return handleStreamingResponse(reader, decoder);
-                })
-                .catch(error => {
-                    loadingSpinner.style.display = 'none';
-                    searchInfo.style.display = 'block';
-                    searchResultsTitle.textContent = `Error`;
-                    
-                    let errorMessage;
-                    if (error.name === 'AbortError') {
-                        errorMessage = '<div class="alert alert-warning">' +
-                            '<i class="fas fa-exclamation-triangle me-2"></i>Search was cancelled by user.</div>';
-                    } else {
-                        console.error('Request error:', error);
-                        errorMessage = `<div class="alert alert-danger">
-                            <i class="fas fa-exclamation-circle me-2"></i>
-                            <strong>Error:</strong> ${error.message}
-                            <hr>
-                            <p>Troubleshooting tips:</p>
-                            <ul>
-                                <li>Check your internet connection</li>
-                                <li>Verify your session ID is still valid</li>
-                                <li>Your search might be too large - try reducing the number of terms</li>
-                                <li>Try refreshing the page and searching again</li>
-                            </ul>
-                        </div>`;
-                    }
-                    
-                    resultStats.innerHTML = errorMessage;
-                    
-                    isProcessingLargeRequest = false;
-                    streamingResponse = null;
-                });
+                let errorMessage;
+                if (error.name === 'AbortError') {
+                    errorMessage = '<div class="alert alert-warning">' +
+                        '<i class="fas fa-exclamation-triangle me-2"></i>Search was cancelled by user.</div>';
+                } else {
+                    console.error('Request error:', error);
+                    errorMessage = `<div class="alert alert-danger">
+                        <i class="fas fa-exclamation-circle me-2"></i>
+                        <strong>Error:</strong> ${error.message}
+                        <hr>
+                        <p>Check your session ID and try again.</p>
+                    </div>`;
+                }
                 
-            } else {
-                // For regular requests, use normal fetch
-                fetch('/api/fetch-product', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(payload),
-                    signal: abortController.signal
-                })
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error(`Server returned ${response.status}: ${response.statusText}`);
-                    }
-                    
-                    // Check if there's content
-                    if (response.headers.get('content-length') === '0') {
-                        throw new Error('Server returned an empty response');
-                    }
-                    
-                    // Parse as JSON with error handling
-                    return response.text().then(text => {
-                        if (!text || text.trim() === '') {
-                            throw new Error('Empty response from server');
-                        }
-                        
-                        try {
-                            return JSON.parse(text);
-                        } catch (e) {
-                            console.error('JSON parse error:', e);
-                            console.error('Raw response:', text);
-                            throw new Error(`Invalid JSON response: ${e.message}`);
-                        }
-                    });
-                })
-                .then(data => {
-                    processResults(data);
-                })
-                .catch(error => {
-                    loadingSpinner.style.display = 'none';
-                    searchInfo.style.display = 'block';
-                    searchResultsTitle.textContent = `Error`;
-                    
-                    let errorMessage;
-                    if (error.name === 'AbortError') {
-                        errorMessage = '<div class="alert alert-warning">' +
-                            '<i class="fas fa-exclamation-triangle me-2"></i>Search was cancelled by user.</div>';
-                    } else {
-                        console.error('Request error:', error);
-                        errorMessage = `<div class="alert alert-danger">
-                            <i class="fas fa-exclamation-circle me-2"></i>
-                            <strong>Error:</strong> ${error.message}
-                            <hr>
-                            <p>Troubleshooting tips:</p>
-                            <ul>
-                                <li>Check your internet connection</li>
-                                <li>Verify your session ID is still valid</li>
-                                <li>Your search might be too large - try reducing the number of terms</li>
-                                <li>Try refreshing the page and searching again</li>
-                            </ul>
-                        </div>`;
-                    }
-                    
-                    resultStats.innerHTML = errorMessage;
-                });
-            }
+                resultStats.innerHTML = errorMessage;
+            });
         }
 
         function displayResults(products, containerElement) {
             if (!products || products.length === 0) {
-                if (!isProcessingLargeRequest) {
-                    containerElement.innerHTML = '<div class="col-12 text-center mt-4"><div class="alert alert-info">' +
-                        '<i class="fas fa-info-circle me-2"></i>No products found. Try different search terms.</div></div>';
-                }
+                containerElement.innerHTML = '<div class="col-12 text-center mt-4"><div class="alert alert-info">' +
+                    '<i class="fas fa-info-circle me-2"></i>No products found. Try different search terms.</div></div>';
                 return;
             }
 
-            // Only clear previous results if not streaming
-            if (!isProcessingLargeRequest) {
-                containerElement.innerHTML = '';
-            }
+            containerElement.innerHTML = '';
 
             console.log(`Displaying ${products.length} products`);
 
@@ -2391,27 +1724,14 @@
 
             // Display found products first
             foundProducts.forEach(product => {
-                // Create a unique ID for this product
-                const productId = product.retailerProductId || product.productId || product.searchTerm;
-                const elementId = `product-${productId}`;
-                
-                // Only add if this product isn't already displayed
-                if (!document.getElementById(elementId)) {
-                    const productCard = createProductCard(product);
-                    containerElement.appendChild(productCard);
-                }
+                const productCard = createProductCard(product);
+                containerElement.appendChild(productCard);
             });
 
             // Then display not found products
             notFoundProducts.forEach(product => {
-                // Create a unique ID for this not found product
-                const elementId = `not-found-${product.searchTerm}`;
-                
-                // Only add if this product isn't already displayed
-                if (!document.getElementById(elementId)) {
-                    const notFoundCard = createNotFoundCard(product);
-                    containerElement.appendChild(notFoundCard);
-                }
+                const notFoundCard = createNotFoundCard(product);
+                containerElement.appendChild(notFoundCard);
             });
         }
 
@@ -2575,12 +1895,6 @@
                 case 'notFound':
                     productsToExport = allSearchResults.filter(p => p.found === false);
                     break;
-                case 'available':
-                    productsToExport = allSearchResults.filter(p => p.found === true && p.available === true);
-                    break;
-                case 'unavailable':
-                    productsToExport = allSearchResults.filter(p => p.found === true && p.available === false);
-                    break;
                 case 'currentView':
                     // Get currently visible products based on the applied filter
                     const visibleIds = Array.from(document.querySelectorAll('.col-md-4[style="display: block;"], .col-lg-3[style="display: block;"]'))
@@ -2656,16 +1970,10 @@
                         "Product ID": 'NOT_FOUND',
                         "Name": `Article Not Found: ${product.searchTerm || ''}`,
                         "Brand": 'N/A',
-                        "Category": 'N/A',
                         "Current Price": 'N/A',
                         "Original Price": 'N/A',
                         "Discount %": 'N/A',
-                        "Unit Price": 'N/A',
-                        "Unit": 'N/A',
                         "Available": 'No',
-                        "Scene+ Offers": 'N/A',
-                        "Other Offers": 'N/A',
-                        "Image URL": 'N/A',
                         "Not Found Reason": product.notFoundMessage || 'Article not published or typo'
                     };
                 }
@@ -2676,43 +1984,17 @@
                     "Product ID": product.retailerProductId || product.productId || 'N/A',
                     "Name": product.name || 'N/A',
                     "Brand": product.brand || 'N/A',
-                    "Category": product.category || 'N/A',
                     "Current Price": product.currentPrice ? `$${product.currentPrice}` : 'N/A',
                     "Original Price": product.originalPrice ? `$${product.originalPrice}` : 'N/A',
                     "Discount %": discountPercentage ? `${discountPercentage}%` : 'N/A',
-                    "Unit Price": product.unitPrice ? `$${product.unitPrice}` : 'N/A',
-                    "Unit": product.unitLabel || 'N/A',
                     "Available": product.available ? 'Yes' : 'No',
                     "Scene+ Offers": sceneOffers || 'None',
-                    "Other Offers": otherOffers || 'None',
-                    "Image URL": product.imageUrl || 'N/A',
-                    "Not Found Reason": ''
+                    "Other Offers": otherOffers || 'None'
                 };
             });
 
             // Convert to worksheet
             const ws = XLSX.utils.json_to_sheet(exportData);
-
-            // Create column widths
-            const wscols = [
-                {wch: 20}, // Search Term
-                {wch: 15}, // Product ID
-                {wch: 40}, // Name
-                {wch: 15}, // Brand
-                {wch: 25}, // Category
-                {wch: 15}, // Current Price
-                {wch: 15}, // Original Price
-                {wch: 12}, // Discount %
-                {wch: 15}, // Unit Price
-                {wch: 10}, // Unit
-                {wch: 10}, // Available
-                {wch: 30}, // Scene+ Offers
-                {wch: 30}, // Other Offers
-                {wch: 50}, // Image URL
-                {wch: 40}  // Not Found Reason
-            ];
-
-            ws['!cols'] = wscols;
 
             // Add the worksheet to the workbook
             XLSX.utils.book_append_sheet(wb, ws, 'Products');
@@ -2724,32 +2006,11 @@
             const regionName = currentRegionInfo?.nickname || 'Unknown';
             const postalCode = currentRegionInfo?.postalCode || '';
             
-            // Add export type to filename
-            let exportTypeLabel = '';
-            switch (option) {
-                case 'found': exportTypeLabel = '-Found'; break;
-                case 'notFound': exportTypeLabel = '-NotFound'; break;
-                case 'available': exportTypeLabel = '-Available'; break;
-                case 'unavailable': exportTypeLabel = '-Unavailable'; break;
-                case 'currentView': exportTypeLabel = '-Filtered'; break;
-            }
-
             // Create a descriptive filename with region details
-            const filename = `Voila-${regionName}-${postalCode}${exportTypeLabel}-Products-${timestamp}.xlsx`;
+            const filename = `Voila-${regionName}-${postalCode}-Products-${timestamp}.xlsx`;
 
             // Generate Excel file
             XLSX.writeFile(wb, filename);
-        }
-
-        // Helper function to format elapsed time
-        function formatElapsedTime(seconds) {
-            if (seconds < 60) {
-                return `${Math.round(seconds)} sec`;
-            } else {
-                const minutes = Math.floor(seconds / 60);
-                const remainingSeconds = Math.round(seconds % 60);
-                return `${minutes}m ${remainingSeconds}s`;
-            }
         }
     });
 </script>
