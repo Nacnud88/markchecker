@@ -7,12 +7,12 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<!-- Favicon links -->
-<link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='favicon_io/apple-touch-icon.png') }}">
-<link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='favicon_io/favicon-32x32.png') }}">
-<link rel="icon" type="image/png" sizes="16x16" href="{{ url_for('static', filename='favicon_io/favicon-16x16.png') }}">
-<link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon_io/favicon.ico') }}">
-<link rel="manifest" href="{{ url_for('static', filename='favicon_io/site.webmanifest') }}">
+    <!-- Favicon links -->
+    <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='favicon_io/apple-touch-icon.png') }}">
+    <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='favicon_io/favicon-32x32.png') }}">
+    <link rel="icon" type="image/png" sizes="16x16" href="{{ url_for('static', filename='favicon_io/favicon-16x16.png') }}">
+    <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon_io/favicon.ico') }}">
+    <link rel="manifest" href="{{ url_for('static', filename='favicon_io/site.webmanifest') }}">
 
 <style>
     :root {
@@ -1049,7 +1049,7 @@
         let duplicatesFound = [];
         let abortController = null;
         let progressInterval = null;
-        
+
         // Initialize tooltips
         var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
         var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
@@ -1160,12 +1160,9 @@
             filter => filter.addEventListener('change', filterResults)
         );
 
-        // Add event listener to check region info when session ID changes
+        // Check region info when session ID changes or is pasted
         document.getElementById('sessionId').addEventListener('blur', checkRegionInfo);
-
-        // Also check session ID when pasted
         document.getElementById('sessionId').addEventListener('paste', function() {
-            // Short delay to allow paste to complete
             setTimeout(checkRegionInfo, 100);
         });
 
@@ -1202,10 +1199,13 @@
             searchTerms.focus();
         }
 
-        // Simulated progress bar function
+        // -----------------------------------------------------------------------------
+        // REPLACED STARTSimulatedProgress FUNCTION
+        // -----------------------------------------------------------------------------
+        // Function to improve the simulated progress bar
         function startSimulatedProgress() {
             let progress = 0;
-            const randomIncrement = () => Math.random() * 5 + 1; // Random increment between 1-6%
+            const randomIncrement = () => Math.random() * 4 + 1; // Random increment between 1-5%
             
             // Clear any existing interval
             if (progressInterval) clearInterval(progressInterval);
@@ -1215,15 +1215,24 @@
             progressBar.textContent = '0%';
             progressContainer.style.display = 'block';
             
-            // Start new interval
+            // Calculate estimated time based on number of terms
+            const searchTermsInput = document.getElementById('searchTerms').value.trim();
+            const estimatedTermCount = searchTermsInput.split(/[\n,]/).filter(term => term.trim()).length;
+            const baseTime = 10000; // Base time in ms
+            const estimatedTimePerTerm = 500; // ms per term
+            const estimatedTotalTime = baseTime + (estimatedTermCount * estimatedTimePerTerm);
+            
+            // Start new interval with adjusted timing based on estimated request time
             progressInterval = setInterval(() => {
-                // Add random increment but slow down as we get closer to 90%
-                if (progress < 50) {
-                    progress += randomIncrement();
-                } else if (progress < 75) {
-                    progress += randomIncrement() / 2;
-                } else if (progress < 90) {
-                    progress += randomIncrement() / 4;
+                // Calculate target progress based on elapsed time
+                const elapsedTime = performance.now() - startTime;
+                const targetProgress = Math.min(90, (elapsedTime / estimatedTotalTime) * 100);
+                
+                // Smooth progress toward target
+                if (progress < targetProgress) {
+                    // Move faster toward target when far behind
+                    const increment = (targetProgress - progress) / 10;
+                    progress += Math.max(0.5, increment);
                 }
                 
                 // Cap at 90% - the remaining will be filled when data arrives
@@ -1235,7 +1244,7 @@
                 progressBar.textContent = `${Math.round(progress)}%`;
                 
                 // Update status message occasionally
-                if (Math.random() > 0.8) {
+                if (Math.random() > 0.9) {
                     const messages = [
                         "Searching for products...",
                         "Processing your request...",
@@ -1245,10 +1254,126 @@
                     ];
                     progressStatusText.textContent = messages[Math.floor(Math.random() * messages.length)];
                 }
-            }, 300);
+            }, 100); // Update more frequently for smoother animation
         }
-        
-        // Function to stop the simulated progress
+
+        // -----------------------------------------------------------------------------
+        // REPLACED searchProducts FUNCTION
+        // -----------------------------------------------------------------------------
+        // Main search function
+        function searchProducts() {
+            // Reset any previous search
+            abortCurrentRequest();
+            
+            const sessionId = document.getElementById('sessionId').value.trim();
+            const searchTermsInput = document.getElementById('searchTerms').value.trim();
+            const resultLimit = document.getElementById('resultLimit').value;
+            const searchType = articleSearch.checked ? 'article' : 'generic';
+
+            // Validate inputs
+            if (!sessionId) {
+                alert('Please enter your Voila session ID');
+                return;
+            }
+
+            if (!searchTermsInput) {
+                alert('Please enter at least one search term');
+                return;
+            }
+            
+            // Create abort controller for request cancellation
+            abortController = new AbortController();
+
+            // Show loading spinner and start progress simulation
+            loadingSpinner.style.display = 'block';
+            loadingMessage.textContent = searchType === 'article' ? 'Searching for articles...' : 'Performing generic search...';
+            resultsContainer.innerHTML = '';
+            searchInfo.style.display = 'none';
+            exportButton.style.display = 'none';
+            parsedTermsSection.style.display = 'none';
+            filterControls.style.display = 'none';
+            duplicateMessage.style.display = 'none';
+            duplicateList.style.display = 'none';
+            toggleDuplicateList.style.display = 'none';
+            noResultsMessage.style.display = 'none';
+            
+            // Store start time for progress estimation
+            window.startTime = performance.now();
+            
+            // Start simulated progress bar
+            startSimulatedProgress();
+
+            // Reset results
+            allSearchResults = [];
+            totalFoundProducts = 0;
+            displayedProducts = 0;
+            notFoundProducts = 0;
+            parsedTerms = [];
+            duplicatesFound = [];
+
+            // Prepare request payload
+            const payload = {
+                sessionId: sessionId,
+                searchTerm: searchTermsInput,
+                limit: resultLimit,
+                searchType: searchType
+            };
+            
+            // Add progress message for large searches
+            if (searchTermsInput.split(/[\n,]/).filter(term => term.trim()).length > 30) {
+                progressStatusText.textContent = "Processing a large batch of terms. This may take several minutes...";
+            }
+            
+            // Make the request
+            fetch('/api/fetch-product', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(payload),
+                signal: abortController.signal
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`Server returned ${response.status}: ${response.statusText}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                // When data is received, immediately set progress to 100% 
+                // and stop simulation to avoid the glitch
+                stopSimulatedProgress(true);
+                processResults(data);
+            })
+            .catch(error => {
+                loadingSpinner.style.display = 'none';
+                stopSimulatedProgress(false);
+                
+                searchInfo.style.display = 'block';
+                searchResultsTitle.textContent = `Error`;
+                
+                let errorMessage;
+                if (error.name === 'AbortError') {
+                    errorMessage = '<div class="alert alert-warning">' +
+                        '<i class="fas fa-exclamation-triangle me-2"></i>Search was cancelled by user.</div>';
+                } else {
+                    console.error('Request error:', error);
+                    errorMessage = `<div class="alert alert-danger">
+                        <i class="fas fa-exclamation-circle me-2"></i>
+                        <strong>Error:</strong> ${error.message}
+                        <hr>
+                        <p>Check your session ID and try again.</p>
+                    </div>`;
+                }
+                
+                resultStats.innerHTML = errorMessage;
+            });
+        }
+
+        // -----------------------------------------------------------------------------
+        // REPLACED stopSimulatedProgress FUNCTION
+        // -----------------------------------------------------------------------------
+        // Function to complete progress animation smoothly
         function stopSimulatedProgress(success = true) {
             // Clear the interval
             if (progressInterval) {
@@ -1256,18 +1381,54 @@
                 progressInterval = null;
             }
             
-            // Complete the progress bar
-            progressBar.style.width = success ? '100%' : '0%';
-            progressBar.setAttribute('aria-valuenow', success ? 100 : 0);
-            progressBar.textContent = success ? '100%' : '0%';
+            if (success) {
+                // Instead of immediately jumping to 100%, animate to 100%
+                const currentProgress = parseFloat(progressBar.getAttribute('aria-valuenow'));
+                let progress = currentProgress;
+                
+                const finishInterval = setInterval(() => {
+                    progress += (100 - progress) / 5; // Move progressively slower as it approaches 100%
+                    
+                    // When we're very close to 100%, just set it to 100%
+                    if (progress > 99.5) {
+                        progress = 100;
+                        clearInterval(finishInterval);
+                        
+                        // Hide the progress container after a delay
+                        setTimeout(() => {
+                            progressContainer.style.display = 'none';
+                        }, 500);
+                    }
+                    
+                    // Update the progress bar
+                    progressBar.style.width = `${progress}%`;
+                    progressBar.setAttribute('aria-valuenow', progress);
+                    progressBar.textContent = `${Math.round(progress)}%`;
+                    progressStatusText.textContent = 'Complete!';
+                }, 50);
+            } else {
+                // Reset progress bar for failed/cancelled state
+                progressBar.style.width = '0%';
+                progressBar.setAttribute('aria-valuenow', 0);
+                progressBar.textContent = '0%';
+                progressStatusText.textContent = 'Cancelled';
+                
+                // Hide the progress container after a delay
+                setTimeout(() => {
+                    progressContainer.style.display = 'none';
+                }, 1000);
+            }
+        }
+
+        // Function to abort any in-progress request
+        function abortCurrentRequest() {
+            if (abortController) {
+                abortController.abort();
+                abortController = null;
+            }
             
-            // Update status message
-            progressStatusText.textContent = success ? 'Complete!' : 'Cancelled';
-            
-            // Hide the progress container after a delay
-            setTimeout(() => {
-                progressContainer.style.display = 'none';
-            }, 1000);
+            // Stop progress simulation
+            stopSimulatedProgress(false);
         }
 
         // Function to process search results
@@ -1592,116 +1753,6 @@
                         Please check your session ID or try again later.
                     </div>
                 `;
-            });
-        }
-
-        // Abort any in-progress request
-        function abortCurrentRequest() {
-            if (abortController) {
-                abortController.abort();
-                abortController = null;
-            }
-            
-            // Stop progress simulation
-            stopSimulatedProgress(false);
-        }
-
-        // Main search function
-        function searchProducts() {
-            // Reset any previous search
-            abortCurrentRequest();
-            
-            const sessionId = document.getElementById('sessionId').value.trim();
-            const searchTermsInput = document.getElementById('searchTerms').value.trim();
-            const resultLimit = document.getElementById('resultLimit').value;
-            const searchType = articleSearch.checked ? 'article' : 'generic';
-
-            // Validate inputs
-            if (!sessionId) {
-                alert('Please enter your Voila session ID');
-                return;
-            }
-
-            if (!searchTermsInput) {
-                alert('Please enter at least one search term');
-                return;
-            }
-            
-            // Create abort controller for request cancellation
-            abortController = new AbortController();
-
-            // Show loading spinner and start progress simulation
-            loadingSpinner.style.display = 'block';
-            loadingMessage.textContent = searchType === 'article' ? 'Searching for articles...' : 'Performing generic search...';
-            resultsContainer.innerHTML = '';
-            searchInfo.style.display = 'none';
-            exportButton.style.display = 'none';
-            parsedTermsSection.style.display = 'none';
-            filterControls.style.display = 'none';
-            duplicateMessage.style.display = 'none';
-            duplicateList.style.display = 'none';
-            toggleDuplicateList.style.display = 'none';
-            noResultsMessage.style.display = 'none';
-            
-            // Start simulated progress bar
-            startSimulatedProgress();
-
-            // Reset results
-            allSearchResults = [];
-            totalFoundProducts = 0;
-            displayedProducts = 0;
-            notFoundProducts = 0;
-            parsedTerms = [];
-            duplicatesFound = [];
-
-            // Prepare request payload
-            const payload = {
-                sessionId: sessionId,
-                searchTerm: searchTermsInput,
-                limit: resultLimit,
-                searchType: searchType
-            };
-            
-            // Make the request
-            fetch('/api/fetch-product', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(payload),
-                signal: abortController.signal
-            })
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error(`Server returned ${response.status}: ${response.statusText}`);
-                }
-                return response.json();
-            })
-            .then(data => {
-                processResults(data);
-            })
-            .catch(error => {
-                loadingSpinner.style.display = 'none';
-                stopSimulatedProgress(false);
-                
-                searchInfo.style.display = 'block';
-                searchResultsTitle.textContent = `Error`;
-                
-                let errorMessage;
-                if (error.name === 'AbortError') {
-                    errorMessage = '<div class="alert alert-warning">' +
-                        '<i class="fas fa-exclamation-triangle me-2"></i>Search was cancelled by user.</div>';
-                } else {
-                    console.error('Request error:', error);
-                    errorMessage = `<div class="alert alert-danger">
-                        <i class="fas fa-exclamation-circle me-2"></i>
-                        <strong>Error:</strong> ${error.message}
-                        <hr>
-                        <p>Check your session ID and try again.</p>
-                    </div>`;
-                }
-                
-                resultStats.innerHTML = errorMessage;
             });
         }
 
