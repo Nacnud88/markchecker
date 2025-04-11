@@ -605,6 +605,7 @@ def fetch_product():
                 processed_count = 0
                 batch_count = 0
                 total_batches = (len(individual_terms) + BATCH_SIZE - 1) // BATCH_SIZE
+                start_time = time.time()
                 
                 # Start the JSON response
                 yield '{"region_name": %s, "region_info": %s, "search_term": %s, "parsed_terms": %s, "duplicate_count": %d, "duplicates": %s, "contains_ea_codes": %s, "search_type": %s, "status": "processing", "total_terms": %d, "total_batches": %d, "products": [' % (
@@ -629,6 +630,20 @@ def fetch_product():
                     batch_terms = individual_terms[i:i+BATCH_SIZE]
                     logging.info(f"Processing batch {batch_count}/{total_batches} with {len(batch_terms)} terms")
                     
+                    # Send a batch progress update before processing
+                    if i > 0:  # Skip for first batch to avoid extra comma
+                        yield '], "progress_update": true, "batch_current": %d, "batch_total": %d, "processed": %d, "total": %d, "found": %d, "not_found": %d, "elapsed_time": %.2f, "status": "processing", "current_batch_terms": %s, "products": [' % (
+                            batch_count,
+                            total_batches,
+                            processed_count,
+                            len(individual_terms),
+                            total_found,
+                            processed_count - total_found,
+                            time.time() - start_time,
+                            json.dumps(batch_terms[:5])  # Send first 5 terms in current batch
+                        )
+                        first_product = True  # Reset for new batch segment
+                    
                     # Reduce number of concurrent threads for API requests
                     batch_workers = min(MAX_WORKERS, len(batch_terms))
                     batch_products = []
@@ -645,6 +660,26 @@ def fetch_product():
                             
                             try:
                                 product_result, term_total_found = future.result()
+                                
+                                # Update progress after each term (emit a special progress object)
+                                if processed_count % 5 == 0 or processed_count == len(individual_terms):
+                                    # Temporary yield to update progress without breaking JSON
+                                    progress_percent = (processed_count / len(individual_terms)) * 100
+                                    
+                                    # Before adding a new product, close current array and add progress info
+                                    if not first_product:
+                                        yield '], "progress_update": true, "batch_current": %d, "batch_total": %d, "processed": %d, "total": %d, "found": %d, "not_found": %d, "progress_percent": %.1f, "elapsed_time": %.2f, "current_term": %s, "status": "processing", "products": [' % (
+                                                batch_count,
+                                                total_batches,
+                                                processed_count,
+                                                len(individual_terms),
+                                                total_found + batch_total_found,
+                                                processed_count - (total_found + batch_total_found),
+                                                progress_percent,
+                                                time.time() - start_time,
+                                                json.dumps(term)
+                                            )
+                                        first_product = True
                                 
                                 # Handle both single product and list of products results
                                 if isinstance(product_result, list):
