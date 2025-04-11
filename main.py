@@ -559,6 +559,7 @@ def process_term(term, session_id, limit, is_article_search=True):
             "notFoundMessage": f"Error processing the article. Please try again."
         }, 0
         
+# The generate_response function needs proper indentation
 @app.route('/api/fetch-product', methods=['POST'])
 def fetch_product():
     """API endpoint for product searches with user-provided session ID"""
@@ -600,164 +601,224 @@ def fetch_product():
         if len(individual_terms) > 30:
             # Define the function to generate streaming response
             def generate_response():
-    products = []
-    total_found = 0
-    processed_count = 0
-    batch_count = 0
-    total_batches = (len(individual_terms) + BATCH_SIZE - 1) // BATCH_SIZE
-    start_time = time.time()
-    
-    # Start the JSON response
-    yield '{"region_name": %s, "region_info": %s, "search_term": %s, "parsed_terms": %s, "duplicate_count": %d, "duplicates": %s, "contains_ea_codes": %s, "search_type": %s, "status": "processing", "total_terms": %d, "total_batches": %d, "products": [' % (
-        json.dumps(region_name),
-        json.dumps(region_info),
-        json.dumps(search_term),
-        json.dumps(individual_terms),
-        duplicate_count,
-        json.dumps(duplicates),
-        json.dumps(contains_ea_codes),
-        json.dumps(search_type),
-        len(individual_terms),
-        total_batches
-    )
-    
-    # Flag to track if we've written the first product
-    first_product = True
-    
-    # Process terms in smaller batches to avoid memory issues
-    for i in range(0, len(individual_terms), BATCH_SIZE):
-        batch_count += 1
-        batch_terms = individual_terms[i:i+BATCH_SIZE]
-        logging.info(f"Processing batch {batch_count}/{total_batches} with {len(batch_terms)} terms")
-        
-        # Send a batch progress update before processing
-        if i > 0:  # Skip for first batch to avoid extra comma
-            yield '], "progress_update": true, "batch_current": %d, "batch_total": %d, "processed": %d, "total": %d, "found": %d, "not_found": %d, "elapsed_time": %.2f, "status": "processing", "products": [' % (
-                batch_count,
-                total_batches,
-                processed_count,
-                len(individual_terms),
-                total_found,
-                processed_count - total_found,
-                time.time() - start_time,
-                # Added batch terms to help with debugging
-                # json.dumps(batch_terms[:3])  # Send first 3 terms in current batch
-            )
-            first_product = True  # Reset for new batch segment
-        
-        # Reduce number of concurrent threads for API requests
-        batch_workers = min(MAX_WORKERS, len(batch_terms))
-        batch_products = []
-        batch_total_found = 0
-        
-        with ThreadPoolExecutor(max_workers=batch_workers) as executor:
-            # Create a dictionary mapping futures to their corresponding terms
-            futures = {executor.submit(process_term, term, session_id, limit, is_article_search): term for term in batch_terms}
-            
-            # Process futures as they complete
-            for future in as_completed(futures):
-                term = futures[future]
-                processed_count += 1
+                products = []
+                total_found = 0
+                processed_count = 0
+                batch_count = 0
+                total_batches = (len(individual_terms) + BATCH_SIZE - 1) // BATCH_SIZE
+                start_time = time.time()
                 
-                try:
-                    product_result, term_total_found = future.result()
+                # Start the JSON response
+                yield '{"region_name": %s, "region_info": %s, "search_term": %s, "parsed_terms": %s, "duplicate_count": %d, "duplicates": %s, "contains_ea_codes": %s, "search_type": %s, "status": "processing", "total_terms": %d, "total_batches": %d, "products": [' % (
+                    json.dumps(region_name),
+                    json.dumps(region_info),
+                    json.dumps(search_term),
+                    json.dumps(individual_terms),
+                    duplicate_count,
+                    json.dumps(duplicates),
+                    json.dumps(contains_ea_codes),
+                    json.dumps(search_type),
+                    len(individual_terms),
+                    total_batches
+                )
+                
+                # Flag to track if we've written the first product
+                first_product = True
+                
+                # Process terms in smaller batches to avoid memory issues
+                for i in range(0, len(individual_terms), BATCH_SIZE):
+                    batch_count += 1
+                    batch_terms = individual_terms[i:i+BATCH_SIZE]
+                    logging.info(f"Processing batch {batch_count}/{total_batches} with {len(batch_terms)} terms")
                     
-                    # Update progress after each term (emit a special progress object)
-                    if processed_count % 3 == 0 or processed_count == len(individual_terms):
-                        # Temporary yield to update progress without breaking JSON
-                        progress_percent = (processed_count / len(individual_terms)) * 100
-                        
-                        # Before adding a new product, close current array and add progress info
-                        if not first_product:
-                            yield '], "progress_update": true, "batch_current": %d, "batch_total": %d, "processed": %d, "total": %d, "found": %d, "not_found": %d, "progress_percent": %.1f, "elapsed_time": %.2f, "current_term": %s, "status": "processing", "products": [' % (
-                                    batch_count,
-                                    total_batches,
-                                    processed_count,
-                                    len(individual_terms),
-                                    total_found + batch_total_found,
-                                    processed_count - (total_found + batch_total_found),
-                                    progress_percent,
-                                    time.time() - start_time,
-                                    json.dumps(term)
-                                )
-                            first_product = True
+                    # Send a batch progress update before processing
+                    if i > 0:  # Skip for first batch to avoid extra comma
+                        yield '], "progress_update": true, "batch_current": %d, "batch_total": %d, "processed": %d, "total": %d, "found": %d, "not_found": %d, "elapsed_time": %.2f, "status": "processing", "products": [' % (
+                            batch_count,
+                            total_batches,
+                            processed_count,
+                            len(individual_terms),
+                            total_found,
+                            processed_count - total_found,
+                            time.time() - start_time,
+                            # Added batch terms to help with debugging
+                            # json.dumps(batch_terms[:3])  # Send first 3 terms in current batch
+                        )
+                        first_product = True  # Reset for new batch segment
                     
-                    # Handle both single product and list of products results
-                    if isinstance(product_result, list):
-                        # For generic search that returns multiple products
-                        batch_total_found += term_total_found
+                    # Reduce number of concurrent threads for API requests
+                    batch_workers = min(MAX_WORKERS, len(batch_terms))
+                    batch_products = []
+                    batch_total_found = 0
+                    
+                    with ThreadPoolExecutor(max_workers=batch_workers) as executor:
+                        # Create a dictionary mapping futures to their corresponding terms
+                        futures = {executor.submit(process_term, term, session_id, limit, is_article_search): term for term in batch_terms}
                         
-                        for idx, product_info in enumerate(product_result):
-                            if not first_product and idx == 0:
-                                yield ','
-                            elif idx > 0:
-                                yield ','
+                        # Process futures as they complete
+                        for future in as_completed(futures):
+                            term = futures[future]
+                            processed_count += 1
+                            
+                            try:
+                                product_result, term_total_found = future.result()
                                 
-                            if idx == 0:
+                                # Update progress after each term (emit a special progress object)
+                                if processed_count % 3 == 0 or processed_count == len(individual_terms):
+                                    # Temporary yield to update progress without breaking JSON
+                                    progress_percent = (processed_count / len(individual_terms)) * 100
+                                    
+                                    # Before adding a new product, close current array and add progress info
+                                    if not first_product:
+                                        yield '], "progress_update": true, "batch_current": %d, "batch_total": %d, "processed": %d, "total": %d, "found": %d, "not_found": %d, "progress_percent": %.1f, "elapsed_time": %.2f, "current_term": %s, "status": "processing", "products": [' % (
+                                                batch_count,
+                                                total_batches,
+                                                processed_count,
+                                                len(individual_terms),
+                                                total_found + batch_total_found,
+                                                processed_count - (total_found + batch_total_found),
+                                                progress_percent,
+                                                time.time() - start_time,
+                                                json.dumps(term)
+                                            )
+                                        first_product = True
+                                
+                                # Handle both single product and list of products results
+                                if isinstance(product_result, list):
+                                    # For generic search that returns multiple products
+                                    batch_total_found += term_total_found
+                                    
+                                    for idx, product_info in enumerate(product_result):
+                                        if not first_product and idx == 0:
+                                            yield ','
+                                        elif idx > 0:
+                                            yield ','
+                                            
+                                        if idx == 0:
+                                            first_product = False
+                                            
+                                        # Yield the product as JSON
+                                        yield json.dumps(product_info)
+                                        batch_products.append(product_info)
+                                elif product_result:  # Single product result
+                                    batch_total_found += term_total_found
+                                    
+                                    # Add comma if not the first product
+                                    if not first_product:
+                                        yield ','
+                                    first_product = False
+                                    
+                                    # Yield the product as JSON
+                                    yield json.dumps(product_result)
+                                    batch_products.append(product_result)
+                                    
+                            except Exception as e:
+                                logging.error(f"Error processing term {term}: {str(e)}")
+                                # Add not found entry for failed term
+                                not_found_entry = {
+                                    "found": False,
+                                    "searchTerm": term,
+                                    "productId": None,
+                                    "retailerProductId": None,
+                                    "name": f"Article Not Found: {term}",
+                                    "brand": None,
+                                    "available": False,
+                                    "category": "",
+                                    "imageUrl": None,
+                                    "notFoundMessage": f"The article \"{term}\" was not found. It may not be published yet or could be a typo."
+                                }
+                                
+                                # Add comma if not the first product
+                                if not first_product:
+                                    yield ','
                                 first_product = False
                                 
-                            # Yield the product as JSON
-                            yield json.dumps(product_info)
-                            batch_products.append(product_info)
-                    elif product_result:  # Single product result
-                        batch_total_found += term_total_found
-                        
-                        # Add comma if not the first product
-                        if not first_product:
-                            yield ','
-                        first_product = False
-                        
-                        # Yield the product as JSON
-                        yield json.dumps(product_result)
-                        batch_products.append(product_result)
-                        
-                except Exception as e:
-                    logging.error(f"Error processing term {term}: {str(e)}")
-                    # Add not found entry for failed term
-                    not_found_entry = {
-                        "found": False,
-                        "searchTerm": term,
-                        "productId": None,
-                        "retailerProductId": None,
-                        "name": f"Article Not Found: {term}",
-                        "brand": None,
-                        "available": False,
-                        "category": "",
-                        "imageUrl": None,
-                        "notFoundMessage": f"The article \"{term}\" was not found. It may not be published yet or could be a typo."
-                    }
+                                # Yield the not-found entry
+                                yield json.dumps(not_found_entry)
+                                batch_products.append(not_found_entry)
                     
-                    # Add comma if not the first product
-                    if not first_product:
-                        yield ','
-                    first_product = False
+                    # Run garbage collection after each batch to free memory
+                    if GC_ENABLED:
+                        collected = gc.collect()
+                        logging.debug(f"Garbage collection: {collected} objects collected")
                     
-                    # Yield the not-found entry
-                    yield json.dumps(not_found_entry)
-                    batch_products.append(not_found_entry)
+                    # Add batch products to overall count but don't keep them in memory
+                    # Just track the statistics to avoid large memory usage
+                    total_found += batch_total_found
+                    products_count = len(products) + len(batch_products)
+                    
+                    # After processing the batch, clear the references to free memory
+                    batch_products.clear()
+                    
+                    # Slight delay between batches to prevent overwhelming the system
+                    time.sleep(0.5)
+                
+                # Complete the JSON response
+                yield '], "total_found": %d, "total_processed": %d, "status": "completed"}' % (
+                    total_found,
+                    processed_count
+                )
+                
+            # Return a streaming response
+            return Response(stream_with_context(generate_response()), content_type='application/json')
         
-        # Run garbage collection after each batch to free memory
-        if GC_ENABLED:
-            collected = gc.collect()
-            logging.debug(f"Garbage collection: {collected} objects collected")
-        
-        # Add batch products to overall count but don't keep them in memory
-        # Just track the statistics to avoid large memory usage
-        total_found += batch_total_found
-        products_count = len(products) + len(batch_products)
-        
-        # After processing the batch, clear the references to free memory
-        batch_products.clear()
-        
-        # Slight delay between batches to prevent overwhelming the system
-        time.sleep(0.5)
-    
-    # Complete the JSON response
-    yield '], "total_found": %d, "total_processed": %d, "status": "completed"}' % (
-        total_found,
-        processed_count
-    )
-
+        # For smaller sets of terms, process everything at once
+        else:
+            # For smaller sets of terms, process everything at once
+            all_products = []
+            total_found = 0
+            
+            # Process terms in parallel
+            with ThreadPoolExecutor(max_workers=min(MAX_WORKERS, len(individual_terms))) as executor:
+                futures = {executor.submit(process_term, term, session_id, limit, is_article_search): term for term in individual_terms}
+                
+                for future in as_completed(futures):
+                    term = futures[future]
+                    try:
+                        product_result, term_total_found = future.result()
+                        total_found += term_total_found
+                        
+                        if isinstance(product_result, list):
+                            # For generic search that returns multiple products
+                            all_products.extend(product_result)
+                        elif product_result:
+                            all_products.append(product_result)
+                    except Exception as e:
+                        logging.error(f"Error processing term {term}: {str(e)}")
+                        # Add not found entry for failed term
+                        all_products.append({
+                            "found": False,
+                            "searchTerm": term,
+                            "productId": None,
+                            "retailerProductId": None,
+                            "name": f"Article Not Found: {term}",
+                            "brand": None,
+                            "available": False,
+                            "category": "",
+                            "imageUrl": None,
+                            "notFoundMessage": f"The article \"{term}\" was not found. It may not be published yet or could be a typo."
+                        })
+            
+            # Construct the response JSON
+            response = {
+                "region_name": region_name,
+                "region_info": region_info,
+                "search_term": search_term, 
+                "parsed_terms": individual_terms,
+                "duplicate_count": duplicate_count,
+                "duplicates": duplicates,
+                "contains_ea_codes": contains_ea_codes,
+                "search_type": search_type,
+                "total_found": total_found,
+                "total_processed": len(individual_terms),
+                "products": all_products
+            }
+            
+            return jsonify(response)
+            
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
 
 @app.route('/api/auto-scrape', methods=['POST'])
 def auto_scrape():
